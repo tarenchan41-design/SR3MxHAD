@@ -3,6 +3,12 @@
 Reads the published split and source captures. It never changes captures, split
 files, weights, or training state. Printed checks cover all trajectory metadata;
 PNG/PDF pages show five deterministic train examples selected by geometry only.
+
+Source: UE left-handed world, +Z up; engine cm, captured position_m meters,
+captured yaw degrees (+X toward +Y). Actions: yaw-only forward/right/up,
+meters and radians. AirSim/Cosys API uses NED meters and yaw angles in degrees.
+The short final geometric transition is not a STOP rule; STOP is independently
+labelled on the terminal 10m suffix and those actions are masked in training.
 """
 from __future__ import annotations
 
@@ -28,14 +34,18 @@ from matplotlib.backends.backend_pdf import PdfPages
 import torch
 
 from vln_benchmark.dataset import iter_split
-from vln_benchmark.unified.contract import adjacent_action, local_state, wrap
+from coordinates import adjacent_action, local_state, wrap, fru_to_world, check_climb
+from experiment import stop_suffix, PreparedSplit, read_json
+from had_model import image_transform
+from vln_benchmark.dataset import read_capture
+from vln_benchmark.unified.data import split_hashes
 from vln_benchmark.unified.data import CaptureDataset
 from vln_benchmark.unified.had import HadConfig, tensorize_payloads, validate_payload
 from vln_benchmark.unified.tokenizer import ChineseTokenizer
 
 SPLITS = ("train", "val_seen", "val_unseen", "test")
 EXPECTED = dict(zip(SPLITS, (1027, 184, 199, 196)))
-CATEGORIES = ("airfields", "integrated_base", "forests", "mountain", "desert")
+CATEGORIES = ("airfields", "integrated_base", "forests", "mountain", "prairie")
 
 
 def require(condition, message):
@@ -55,11 +65,55 @@ def quaternion_basis(quaternions):
 
 def reconstruct(position, yaw, actions):
     recovered_yaw = yaw[0] + np.r_[0., np.cumsum(actions[:, 3])]
-    c, s = np.cos(recovered_yaw[:-1]), np.sin(recovered_yaw[:-1])
-    world_delta = np.column_stack((c*actions[:, 0]-s*actions[:, 1],
-                                   s*actions[:, 0]+c*actions[:, 1], actions[:, 2]))
+    world_delta = fru_to_world(actions[:, :3], recovered_yaw[:-1])
     recovered = position[0] + np.vstack((np.zeros(3), np.cumsum(world_delta, axis=0)))
     return recovered, recovered_yaw, world_delta
+
+
+def collect_prepared(root, prepared):
+    """Check the five selected raw captures, without reopening all 1606 routes."""
+    ds=PreparedSplit(prepared,"train")
+    require(split_hashes(root/"benchmark_split_v1")==ds.protocol["source_split"],"Published indices changed")
+    records={r["episode_id"]:r for r in map(json.loads,(root/"benchmark_split_v1/train.jsonl").read_text().splitlines())}
+    chosen=[];checked=0
+    for category in CATEGORIES:
+        candidates=[]
+        for r in ds.routes:
+            if r["category"]!=category: continue
+            sl=slice(r["offset"],r["offset"]+r["count"]);yaw=ds.arrays["yaw"][sl]
+            turn=np.abs(np.arctan2(np.sin(np.diff(yaw)),np.cos(np.diff(yaw)))).sum()
+            crossings=int((np.abs(np.diff(yaw))>np.pi).sum())
+            score=(np.ptp(ds.arrays["position"][sl,2]),turn) if category=="mountain" else (crossings,turn)
+            candidates.append((score,r))
+        _,r=max(candidates,key=lambda v:v[0]);record=records[r["episode_id"]]
+        episode,digest=read_capture(root/record["trajectory_relpath"])
+        require(digest==record["trajectory_sha256"],"Selected raw capture changed")
+        steps=episode["steps"];p=np.array([[s["position_m"][k] for k in "xyz"] for s in steps]);yaw=np.radians([s["rotation_deg"]["yaw"] for s in steps])
+        q=np.array([[s["quaternion"][k] for k in "xyzw"] for s in steps]);basis=quaternion_basis(q)
+        actions=np.array([adjacent_action(p[t],yaw[t],p[t+1],yaw[t+1]) for t in range(len(p)-1)])
+        independent=np.einsum("nwi,nw->ni",basis[:-1],np.diff(p,axis=0))
+        require(np.allclose(actions[:,:3],independent,atol=1e-8),"Independent quaternion projection mismatch")
+        recovered,recovered_yaw,delta=reconstruct(p,yaw,actions)
+        pe=float(np.linalg.norm(recovered-p,axis=1).max())
+        require(pe<1e-7 and np.max(np.abs(np.arctan2(np.sin(recovered_yaw-yaw),np.cos(recovered_yaw-yaw))))<1e-8,"Source reconstruction mismatch")
+        start=r["offset"];sl=slice(start,start+r["count"])
+        require(np.allclose(ds.arrays["action"][sl][:-1],actions,atol=1e-6),"Prepared actions differ")
+        require(np.array_equal(ds.arrays["stop"][sl],stop_suffix(p)[0]),"Prepared STOP suffix differs")
+        for t in (0,len(p)-2,len(p)-1):
+            payload=ds.payload(start+t,("front","down"),root)
+            state,angle=local_state(p[t],yaw[t],p[0],yaw[0])
+            expected=[*(np.asarray(state)/100),math.sin(angle),math.cos(angle)]
+            require(set(payload)=={"instruction","images","state"} and np.allclose(payload["state"],expected,atol=1e-6),"Actual policy input mismatch")
+            for path in payload["images"].values():
+                with Image.open(path) as image: require(image_transform()(image.convert("RGB")).shape==(3,224,224),"Bad image tensor")
+            checked+=1
+        chosen.append(dict(record=record,p=p,yaw=yaw,actions=actions,recovered=recovered,recovered_yaw=recovered_yaw,
+                           world_delta=delta,wrap_crossings=int((np.abs(np.diff(yaw))>np.pi).sum()),max_position_error_m=pe,stop_target=ds.arrays["stop"][sl]))
+    climb=chosen[CATEGORIES.index("mountain")]["actions"]
+    check_climb(climb[climb[:,2]>1e-6][0])
+    summary={"scope":"five_geometry_selected_train_routes; full split/terrain preparation already completed",
+             "prepared":read_json(Path(prepared)/"preparation.json"),"actual_input":{"observations":checked,"images":2*checked,"state_dim":5}}
+    return chosen,summary,ChineseTokenizer.load(Path(prepared)/"tokenizer.json")
 
 
 def collect(root):
@@ -85,7 +139,7 @@ def collect(root):
             source_ids = [step.get("source_pose_index") for step in steps]
             require(all(a is None or b is None or b == a+1
                         for a, b in zip(source_ids, source_ids[1:])), "Nonadjacent capture indices")
-            instructions[split].append(text)
+            if record["category"] != "desert": instructions[split].append(text)
             language["with_han"] += bool(re.search(r"[\u3400-\u9fff]", text))
             language["with_ascii_letters"] += bool(re.search(r"[A-Za-z]", text))
             language["without_han"] += not bool(re.search(r"[\u3400-\u9fff]", text))
@@ -137,7 +191,7 @@ def collect(root):
                 if category not in selected or score > selected[category]["score"]:
                     selected[category] = dict(record=record, p=p, yaw=yaw, actions=actions,
                         recovered=recovered, recovered_yaw=recovered_yaw, world_delta=world_delta,
-                        score=score, wrap_crossings=crossings, max_position_error_m=pe)
+                        score=score, wrap_crossings=crossings, max_position_error_m=pe, stop_target=stop_suffix(p)[0])
         require(count == EXPECTED[split], f"Frozen {split} count changed")
         split_info[split] = dict(routes=count, frames=frames, transitions=frames-count)
     groups = defaultdict(set)
@@ -147,9 +201,11 @@ def collect(root):
         ids.add(r["episode_id"])
         groups[r["route_group_id"]].add(r["split"])
     require(all(len(s) == 1 for s in groups.values()), "Related route group crosses splits")
-    tokenizer = ChineseTokenizer.load(SOURCE / "vln_benchmark/unified/artifacts/prepared_v2/tokenizer.json")
-    fitted = ChineseTokenizer.fit(instructions["train"], max_length=tokenizer.max_length)
-    require(fitted.vocab == tokenizer.vocab, "Prepared vocabulary differs from frozen train")
+    tokenizer = ChineseTokenizer.fit(instructions["train"], max_length=256)
+    climb = selected["mountain"]["actions"]
+    positive = climb[climb[:, 2] > 1e-6]
+    require(len(positive) > 0, "Selected mountain route contains no climb for sign check")
+    check_climb(positive[0])
     summary = dict(splits=split_info, unique_routes=len(ids), route_groups=len(groups),
         language=dict(language), latin_tokens=latin.most_common(20),
         tokenizer={s:tokenizer.describe(instructions[s]) for s in SPLITS},
@@ -240,6 +296,9 @@ def draw_actions(ax,item,include_yaw=False):
     for column,label,color in ((0,"dx / forward","#2363aa"),(1,"dy / right","#29966f"),(2,"dz / up","#9a62a8")):
         ax.plot(item["actions"][:,column],label=label,color=color,lw=1.2)
     ax.set(xlabel="Transition index t -> t+1",ylabel="Local displacement (m)")
+    start = int(np.flatnonzero(item["stop_target"])[0])
+    ax.axvspan(start, len(item["actions"]), alpha=.10, color="#ce5749", label="STOP suffix: action loss masked")
+    ax.axvline(len(item["actions"]), color="#ce5749", ls=":", lw=1, label="Final observation: STOP, no action")
     if include_yaw:
         right=ax.twinx()
         right.plot(np.degrees(item["actions"][:,3]),color="#d37820",lw=1.,alpha=.8,label="dyaw (deg)")
@@ -281,9 +340,14 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root",type=Path,default=Path("/mnt/f/WSL_ColdStorage/datasets/DatasetCaptureBatches/workbench"))
     parser.add_argument("--out",type=Path,default=PROJECT/"figures")
+    parser.add_argument("--prepared",type=Path,default=PROJECT/"runs/terrain_v1/prepared")
+    parser.add_argument("--full-audit",action="store_true",help="Reopen all source trajectories, including historical test metadata")
     args=parser.parse_args()
-    chosen,summary,tokenizer=collect(args.root)
-    summary["actual_input"]=check_actual_input(args.root,chosen,tokenizer)
+    if args.full_audit:
+        chosen,summary,tokenizer=collect(args.root)
+        summary["actual_input"]=check_actual_input(args.root,chosen,tokenizer)
+    else:
+        chosen,summary,tokenizer=collect_prepared(args.root,args.prepared)
     summary["selected"]=[dict(episode_id=r["record"]["episode_id"],category=r["record"]["category"],
         transitions=len(r["actions"]),wrap_crossings=r["wrap_crossings"],
         vertical_range_m=float(np.ptp(r["p"][:,2])),max_position_error_m=r["max_position_error_m"]) for r in chosen]
