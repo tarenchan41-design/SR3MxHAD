@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/qlj215/HAD-UAV-VLN",
+  "commit": "f01440a7648e8c9ce89ea4f925a74c32ecc97120",
+  "note": "Byte-identical copies of models/*.py at this commit; do not edit, subclass in had/model.py instead.",
+  "files": {
+    "encoders.py": "de953e353c2d5efab3dd47c352772a679ec943856a58c60181f1e4f77d14e11c",
+    "fusion.py": "61a7ab2b1bb5fda9137ad20b1a80b43853df03a2ab15d4971c4ae3cca8a7d512",
+    "policy_head.py": "ad2ba5a9bcf5350f0eea9844a1b0c77eed91d25b50acb35235209589520db991"
+  }
+}

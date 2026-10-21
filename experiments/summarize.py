@@ -2,8 +2,8 @@
 import argparse
 from pathlib import Path
 import numpy as np
-from experiment import PROTOCOL, read_json, write_json
-from metrics import mean, selection_score
+from experiments.protocol import PROTOCOL, read_json, write_json
+from experiments.metrics import mean, selection_score
 
 
 def averaged_routes(reports):

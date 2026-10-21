@@ -9,8 +9,8 @@ from PIL import Image
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision.models import resnet50
-from experiment import PROTOCOL, PreparedSplit, read_json, write_json
-from had_model import DEFAULT_WEIGHTS, image_transform, validate_weights, configure_precision
+from experiments.protocol import PROTOCOL, PreparedSplit, read_json, write_json
+from had.model import DEFAULT_WEIGHTS, image_transform, validate_weights, configure_precision
 
 
 class Images(Dataset):

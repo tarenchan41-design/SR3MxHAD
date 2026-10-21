@@ -8,20 +8,19 @@ from pathlib import Path
 import re
 
 import numpy as np
-import source  # noqa: F401
-from vln_benchmark.unified.data import CaptureDataset, split_hashes
-from vln_benchmark.unified.contract import adjacent_action
-from had_model import Tokenizer
-from experiment import PROTOCOL, EXPECTED, EXECUTOR, DEFAULT_ROOT, DEFAULT_TERRAIN, action_statistics, code_version, read_json, stop_suffix, terrain_following, write_json
+from sr3m.data import CaptureRoutes, INDEX_DIR, split_hashes
+from sr3m.geometry import adjacent_action
+from sr3m.sim import EXECUTOR
+from had.tokenizer import Tokenizer
+from experiments.protocol import PROTOCOL, EXPECTED, action_statistics, code_version, machine_paths, read_json, stop_suffix, terrain_following, write_json
 
 
 def load_split(root, split):
-    rows = [__import__("json").loads(line) for line in (root / "benchmark_split_v1" / f"{split}.jsonl").read_text().splitlines()]
+    rows = [__import__("json").loads(line) for line in (root / INDEX_DIR / f"{split}.jsonl").read_text().splitlines()]
     selected = {r["episode_id"] for r in rows if r["category"] != "desert"}
     if len(selected) != EXPECTED[split]:
         raise ValueError(f"Unexpected filtered {split} route count: {len(selected)}")
-    return CaptureDataset(root, root / "benchmark_split_v1", split, "dual_relative_v1",
-                          selected=selected, include_endpoints=True)
+    return CaptureRoutes(root, split, selected)
 
 
 def derive_terrain(datasets, terrain_dir):
@@ -159,15 +158,15 @@ def prepare(args):
     tokenizer.save(out / "tokenizer.json")
     write_json(out / "statistics.json", stats)
     write_json(out / "closed_loop_routes.json", choose_closed_loop(all_routes["val_seen"]))
-    info = {"protocol": PROTOCOL, "source_split": split_hashes(root / "benchmark_split_v1"),
+    info = {"protocol": PROTOCOL, "source_split": split_hashes(root / INDEX_DIR),
             "terrain_bindings": bindings, "code": code_version(), "routes": {s: EXPECTED[s] for s in datasets},
             "prepared_version": 1}
     write_json(out / "protocol.json", info)
     diagnostics["tokenizer"] = {s: tokenizer.describe([r["instruction"] for r in rr]) for s, rr in all_routes.items()}
     diagnostics["vocab_size"] = tokenizer.vocab_size
     write_json(out / "preparation.json", diagnostics)
-    from experiment import PreparedSplit
-    from metrics import evaluate
+    from experiments.protocol import PreparedSplit
+    from experiments.metrics import evaluate
     seen=PreparedSplit(out,"val_seen")
     baselines={name: evaluate(seen,np.broadcast_to(action,(seen.n,4)),stats)
                for name,action in (("fixed_forward",[2.,0.,0.,0.]),("train_mean",stats["mean"]))}
@@ -176,9 +175,10 @@ def prepare(args):
 
 
 if __name__ == "__main__":
+    paths = machine_paths()
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root", type=Path, default=DEFAULT_ROOT)
-    parser.add_argument("--terrain", type=Path, default=DEFAULT_TERRAIN)
+    parser.add_argument("--root", type=Path, default=paths["data_root"])
+    parser.add_argument("--terrain", type=Path, default=paths["terrain_dir"])
     parser.add_argument("--out", required=True)
     prepare(parser.parse_args())
 

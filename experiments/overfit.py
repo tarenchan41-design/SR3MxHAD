@@ -8,10 +8,11 @@ import time
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-from experiment import PROTOCOL, PreparedSplit, read_json, write_json
-from feature_cache import Images
-from had_model import DEFAULT_WEIGHTS, TerrainHAD, Tokenizer
-from train import batch_inputs, loss_for_batch, predict, token_rows
+from experiments.protocol import PROTOCOL, PreparedSplit, read_json, write_json
+from experiments.cache import Images
+from had.model import DEFAULT_WEIGHTS, TerrainHAD
+from had.tokenizer import Tokenizer
+from experiments.train import batch_inputs, loss_for_batch, predict, token_rows
 
 
 def subset(ds):

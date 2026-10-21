@@ -1,0 +1,22 @@
+[project]
+name = "sr3mxhad"
+version = "0.1.0"
+description = "SR3M terrain benchmark x HAD dual-view navigation experiments"
+requires-python = ">=3.11"
+dependencies = ["numpy", "torch", "torchvision", "pillow", "matplotlib"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+sim = ["cosysairsim"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["sr3m*", "had*", "experiments*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

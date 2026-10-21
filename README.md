@@ -2,47 +2,48 @@
 
 核心检验：**mountain 中要求随地形调整高度的路线，是否比对照路线更受益于俯视图，尤其是 dz 误差。**
 
-用户研究方向见 [研究计划](SR3M%20×%20HAD%20研究计划.md)，执行安排见 [离线实验计划](离线实验计划.md) 和 [闭环实验计划](闭环实验计划.md)，准确的数据与坐标定义见 [数据与输入合同](数据与输入合同.md)。
+- 研究动机、投稿目标、时间线：[docs/research_plan.md](docs/research_plan.md)
+- 数据、坐标、STOP、评测与决策规则：[docs/protocol.md](docs/protocol.md)
+- 仓库整合的长期计划（对账、数据发布等）：[docs/AGENT_TASK_architecture.md](docs/AGENT_TASK_architecture.md)
 
-## 当前实现
+## 代码结构
 
-已实现英文数据准备、旧 desert 过滤、地形绑定与 AGL/坡度、十路线过拟合检查、冻结 CNN 特征缓存、A/B/C × 三种子训练、复合选模、STOP 校准、分组评测、线性探针和配对决策汇总。闭环提供独立执行器与 16 路线专家回放门槛，需真实 Cosys-AirSim 环境才能验证。
-
-| split | 非 desert 路线 | mountain 随地形调整 / 对照 |
-|---|---:|---:|
-| train | 898 | 73 / 57 |
-| val_seen | 161 | 15 / 8 |
-| val_unseen | 199 | 37 / 11 |
-| 既有 test（本轮不使用） | 147 | 0 / 0 |
-
-全量 mountain 的 125/76 不能当作独立评测规模。val_unseen 高 AGL 没有对照；报告保留缺失，另给低/中 AGL 等权比较。
+```
+sr3m/          benchmark，将来随数据集公开；不得 import had / experiments
+  data.py        发布划分与捕获文件的只读读取、校验
+  geometry.py    动作合同、FRU/UE/NED 坐标转换
+  sim.py         Cosys-AirSim 执行器（先平移后转 yaw）
+  desert_terrain.py  程序化沙丘地形预览
+had/           方法；不得 import sr3m / experiments
+  model.py       TerrainHAD：A/B/C 共用的 HAD 双视角策略
+  tokenizer.py   词表
+  vendor/        HAD-UAV-VLN@f01440a 原始模块，逐字节副本，不改
+experiments/   唯一同时使用两者的地方
+  protocol.py    PROTOCOL 常量、prepared 数据接口、路径配置
+  run_all.py     完整流水线：prepare → overfit → cache → train → evaluate → probe → summarize
+  metrics.py  closed_loop.py  plot_actions.py  及各阶段脚本
+configs/       paths.example.toml（复制为 paths.toml）、Cosys-AirSim 设置样例
+tests/         单元测试，含包边界测试
+```
 
 ## 运行
 
-依赖现有 SR3M 代码、PyTorch/torchvision、NumPy、Pillow、Matplotlib 和 pytest。当前可用环境是 `/home/qlj/h3c_pro/HAD-UAV-VLN/.venv`；默认读取相邻 `../SR3M`，其他部署位置设置 `SR3M_SOURCE`。官方骨干文件默认在 `~/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth`。
+依赖：Python ≥ 3.11、PyTorch/torchvision、NumPy、Pillow、Matplotlib、pytest。本机环境是 `/home/qlj/h3c_pro/HAD-UAV-VLN/.venv`；ResNet50 权重默认读 `~/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth`。所有命令在仓库根目录执行。
 
 ```bash
-export SR3MXHAD_PYTHON=/home/qlj/h3c_pro/HAD-UAV-VLN/.venv/bin/python
-"$SR3MXHAD_PYTHON" -B -m pytest -q -p no:cacheprovider tests
-"$SR3MXHAD_PYTHON" -u -B run_experiments.py
+cp configs/paths.example.toml configs/paths.toml   # 首次，按本机修改
+export PY=/home/qlj/h3c_pro/HAD-UAV-VLN/.venv/bin/python
+$PY -m pytest -q
+$PY -u -m experiments.run_all
 ```
 
-调度器先完成 10 路线检查，再缓存并训练；每组最多 30 epochs，至少 10，patience 5。中断后重跑同一命令，缓存从已完成行续读，训练从最后完整 epoch 恢复。数据与模型输出不进 Git。
+流水线可中断续跑：缓存从已完成行续读，训练从最后完整 epoch 恢复；状态见 `runs/terrain_v1/pipeline.json` 与各阶段 `*.log`。训练进行中不要提交代码（run 身份绑定 git commit）。
 
-产物位置：
+产物（均不进 Git）：
 
-- `runs/terrain_v1/pipeline.json`：当前阶段、完成或失败状态；对应 `*.log` 记录过程。
-- `runs/terrain_v1/prepared/`：1,330 项英文词表、训练统计、地形标签和固定 16 路线。
-- `/home/qlj/sr3mxhad_runs/terrain_v1/features/`：front/down 2048 维 float32 缓存。
-- `runs/terrain_v1/models/{A,B,C}_seed{42,43,44}/`：best/last、训练曲线和 val_seen 选择记录。
-- `runs/terrain_v1/val_unseen/`、`probe/`、`decision/decision.md`：冻结后的主评测、探针和一页决策报告。
+- `runs/terrain_v1/prepared/`：词表、训练统计、地形标签、16 条闭环路线、val_seen 基线
+- `cache_dir`（见 paths.toml）：front/down 2048 维 float32 特征
+- `runs/terrain_v1/models/{A,B,C}_seed{42,43,44}/`：best/last、训练曲线、val_seen 选择
+- `runs/terrain_v1/val_unseen/`、`probe/`、`decision/decision.md`：冻结后的主评测、探针、决策报告
 
-需要其他数据或缓存位置时使用 `run_experiments.py --root ... --terrain ... --cache ... --out ...`。云端复用 `/root/autodl-tmp/sr3m-openvla` 时，将 `SR3M_SOURCE` 指向该目录，并指定对应数据根目录；不要把旧中文模型当作本轮模型。
-
-## 其他入口
-
-`plot_actions.py` 绘制五条非 desert 专家路线、STOP 后缀及无动作末观测，并检查爬升到 NED 的符号。它显示专家几何标签，不是模型结果。
-
-`desert_terrain.py --out runs/desert_preview` 生成四档共享布局的程序化地形 OBJ、量化指标和预览。它们是 Blender 可导入的离线几何，不是已建好的 UE 地图。
-
-已有中文单种子 front/concat/gate 的历史 test 误差为 6.83/6.95/6.31 cm；这些实验包含旧 desert，协议不同，不能混入本轮英文三种子结论。
+其他入口：`python -m experiments.plot_actions`（五条专家轨迹的动作重建图，输出 `figures/`）、`python -m sr3m.desert_terrain --out runs/desert_preview`、`python -m experiments.closed_loop`（见 protocol.md §7）。

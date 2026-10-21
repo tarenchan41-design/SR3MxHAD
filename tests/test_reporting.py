@@ -3,9 +3,9 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from experiment import PROTOCOL,read_json,write_json
-from metrics import evaluate
-from summarize import run,stable_support
+from experiments.protocol import PROTOCOL,read_json,write_json
+from experiments.metrics import evaluate
+from experiments.summarize import run,stable_support
 
 
 def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
@@ -49,7 +49,7 @@ def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
 
 
 def test_unfinished_nine_runs_cannot_open_held_out_data(tmp_path,monkeypatch):
-    import evaluate as module
+    import experiments.evaluate as module
     def forbidden(*args,**kwargs): raise AssertionError("held-out data opened before selection")
     monkeypatch.setattr(module,"PreparedSplit",forbidden)
     with pytest.raises(ValueError,match="All nine"):

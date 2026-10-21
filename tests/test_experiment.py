@@ -4,13 +4,14 @@ import numpy as np
 import pytest
 import torch
 
-from coordinates import action_target_ned, check_climb, fru_to_world, ned_to_ue_world_m, ue_world_m_to_ned
-from experiment import PROTOCOL, stop_suffix
-from had_model import TerrainHAD, Tokenizer
-from metrics import calibrate_stop, evaluate, stop_metrics
-from summarize import gain
-from train import loss_for_batch
-from train import save_torch
+from sr3m.geometry import action_target_ned, check_climb, fru_to_world, ned_to_ue_world_m, ue_world_m_to_ned
+from experiments.protocol import PROTOCOL, stop_suffix
+from had.model import TerrainHAD
+from had.tokenizer import Tokenizer
+from experiments.metrics import calibrate_stop, evaluate, stop_metrics
+from experiments.summarize import gain
+from experiments.train import loss_for_batch
+from experiments.train import save_torch
 
 
 def fixture_data():
@@ -141,7 +142,7 @@ def test_checkpoint_safe_reload_preserves_vocab_contract_and_outputs(tmp_path):
 
 
 def test_desert_relief_is_reproducible_and_strictly_increasing():
-    from desert_terrain import heightfields,mesh_slopes
+    from sr3m.desert_terrain import heightfields,mesh_slopes
     axis,z=heightfields(size=33)
     assert np.array_equal(z,heightfields(size=33)[1])
     assert np.allclose(z.std(axis=(1,2)),[0,10,25,50])
@@ -153,7 +154,7 @@ def test_desert_relief_is_reproducible_and_strictly_increasing():
 
 
 def test_epoch_checkpoint_resume_matches_uninterrupted_training(tmp_path,monkeypatch):
-    import train as module
+    import experiments.train as module
     from argparse import Namespace
     torch.set_num_threads(2)
     train_ds=fixture_data();train_ds.split="train";train_ds.protocol={"protocol":PROTOCOL}

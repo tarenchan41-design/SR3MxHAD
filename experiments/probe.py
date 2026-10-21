@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 import numpy as np
-from experiment import PreparedSplit, read_features, write_json
+from experiments.protocol import PreparedSplit, read_features, write_json
 
 ALPHAS = [1e-4, 1e-3, 1e-2, .1, 1., 10., 100.]
 

@@ -2,11 +2,14 @@
 from collections import Counter
 import json
 import math
+import os
 from pathlib import Path
 import subprocess
+import tomllib
 
 import numpy as np
-import source
+
+PROJECT = Path(__file__).resolve().parents[1]
 
 PROTOCOL = {
     "name": "sr3m_had_terrain_v1", "language": "en", "excluded_categories": ["desert"],
@@ -23,10 +26,15 @@ PROTOCOL = {
     "selection": "equal_normalized_route_macro_translation_turn_yaw_cohort_macro_mountain_dz",
 }
 EXPECTED = {"train": 898, "val_seen": 161, "val_unseen": 199, "test": 147}
-DEFAULT_ROOT = Path("/mnt/f/WSL_ColdStorage/datasets/DatasetCaptureBatches/workbench")
-DEFAULT_TERRAIN = Path("/mnt/e/UnrealProjects/mountain_base/military_mountains/Saved/VLNDataset/full-200")
-EXECUTOR = {"speed_m_s":2.,"position_tolerance_m":.5,"yaw_api_margin_deg":.01,
-            "yaw_tolerance_deg":.05,"yaw_order":"translate_then_rotate"}
+
+
+def machine_paths():
+    """Per-machine locations from configs/paths.toml (copied from configs/paths.example.toml)."""
+    path = Path(os.environ.get("SR3MXHAD_PATHS", PROJECT / "configs/paths.toml"))
+    if not path.is_file():
+        raise FileNotFoundError(f"Missing {path}; copy configs/paths.example.toml and edit it")
+    with path.open("rb") as f:
+        return {k: PROJECT / Path(v).expanduser() for k, v in tomllib.load(f).items()}
 
 
 def write_json(path, obj):
@@ -43,7 +51,7 @@ def read_json(path):
 
 def code_version():
     def git(*args):
-        return subprocess.check_output(["git", "-C", str(source.PROJECT), *args], text=True).strip()
+        return subprocess.check_output(["git", "-C", str(PROJECT), *args], text=True).strip()
     return {"commit": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain")),
             "had_source": "f01440a7648e8c9ce89ea4f925a74c32ecc97120"}
 

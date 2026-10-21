@@ -18,12 +18,6 @@ import json
 import math
 from pathlib import Path
 import re
-import sys
-
-PROJECT = Path(__file__).resolve().parent
-SOURCE = PROJECT.parent / "SR3M"
-sys.path.insert(0, str(SOURCE))
-sys.path.insert(0, str(SOURCE / "vln_benchmark"))
 
 import numpy as np
 from PIL import Image
@@ -31,17 +25,12 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-import torch
 
-from vln_benchmark.dataset import iter_split
-from coordinates import adjacent_action, local_state, wrap, fru_to_world, check_climb
-from experiment import stop_suffix, PreparedSplit, read_json
-from had_model import image_transform
-from vln_benchmark.dataset import read_capture
-from vln_benchmark.unified.data import split_hashes
-from vln_benchmark.unified.data import CaptureDataset
-from vln_benchmark.unified.had import HadConfig, tensorize_payloads, validate_payload
-from vln_benchmark.unified.tokenizer import ChineseTokenizer
+from sr3m.data import INDEX_DIR, iter_split, read_capture, split_hashes
+from sr3m.geometry import adjacent_action, local_state, wrap, fru_to_world, check_climb
+from experiments.protocol import PROJECT, machine_paths, stop_suffix, PreparedSplit, read_json
+from had.model import image_transform
+from had.tokenizer import Tokenizer
 
 SPLITS = ("train", "val_seen", "val_unseen", "test")
 EXPECTED = dict(zip(SPLITS, (1027, 184, 199, 196)))
@@ -73,7 +62,7 @@ def reconstruct(position, yaw, actions):
 def collect_prepared(root, prepared):
     """Check the five selected raw captures, without reopening all 1606 routes."""
     ds=PreparedSplit(prepared,"train")
-    require(split_hashes(root/"benchmark_split_v1")==ds.protocol["source_split"],"Published indices changed")
+    require(split_hashes(root/INDEX_DIR)==ds.protocol["source_split"],"Published indices changed")
     records={r["episode_id"]:r for r in map(json.loads,(root/"benchmark_split_v1/train.jsonl").read_text().splitlines())}
     chosen=[];checked=0
     for category in CATEGORIES:
@@ -113,11 +102,11 @@ def collect_prepared(root, prepared):
     check_climb(climb[climb[:,2]>1e-6][0])
     summary={"scope":"five_geometry_selected_train_routes; full split/terrain preparation already completed",
              "prepared":read_json(Path(prepared)/"preparation.json"),"actual_input":{"observations":checked,"images":2*checked,"state_dim":5}}
-    return chosen,summary,ChineseTokenizer.load(Path(prepared)/"tokenizer.json")
+    return chosen,summary,Tokenizer.load(Path(prepared)/"tokenizer.json")
 
 
 def collect(root):
-    indices = root / "benchmark_split_v1"
+    indices = root / INDEX_DIR
     rows, selected, instructions = [], {}, defaultdict(list)
     split_info, language, latin = {}, Counter(), Counter()
     maximum = Counter()
@@ -201,7 +190,7 @@ def collect(root):
         ids.add(r["episode_id"])
         groups[r["route_group_id"]].add(r["split"])
     require(all(len(s) == 1 for s in groups.values()), "Related route group crosses splits")
-    tokenizer = ChineseTokenizer.fit(instructions["train"], max_length=256)
+    tokenizer = Tokenizer.fit(instructions["train"], max_length=256)
     climb = selected["mountain"]["actions"]
     positive = climb[climb[:, 2] > 1e-6]
     require(len(positive) > 0, "Selected mountain route contains no climb for sign check")
@@ -212,62 +201,6 @@ def collect(root):
         vocab_size=tokenizer.vocab_size, max_tokens=tokenizer.max_length,
         geometry_maxima=dict(maximum), cameras=dict(cameras), yaw_wrap_transitions=wrapped_transitions)
     return [selected[c] for c in CATEGORIES], summary, tokenizer
-
-
-def check_actual_input(root, chosen, tokenizer):
-    selected = {r["record"]["episode_id"]:r for r in chosen}
-    dataset = CaptureDataset(root, root/"benchmark_split_v1", "train", "dual_relative_v1",
-                             selected=set(selected), include_endpoints=True)
-    representatives = []
-    checked = endpoints = 0
-    for i in range(len(dataset)):
-        sample = dataset[i]
-        record = selected[sample.metadata["episode_id"]]
-        t = sample.metadata["t"]
-        if sample.target.endpoint:
-            endpoints += 1
-            require(sample.target.action_m_rad is None and not sample.target.transition_valid,
-                    "Endpoint incorrectly has a synthetic action")
-        else:
-            require(np.allclose(sample.target.action_m_rad, record["actions"][t], atol=1e-12),
-                    "Actual dataloader target differs from plotted action")
-        state, angle = local_state(record["p"][t], record["yaw"][t], record["p"][0], record["yaw"][0])
-        payload = sample.observation.for_profile("dual_relative_v1")
-        require(np.allclose(payload["position_start_m"], state, atol=1e-10)
-                and abs(wrap(payload["yaw_start_rad"]-angle)) < 1e-10, "State assembly mismatch")
-        require(set(payload) == {"instruction", "images", "position_start_m", "yaw_start_rad"},
-                "Unexpected supervision in model input")
-        checked += 1
-        if t in (0, len(record["p"])-2):
-            representatives.append(payload)
-    torch.set_num_threads(2)
-    config = HadConfig(profile="dual_relative_v1")
-    batch = tensorize_payloads(representatives, tokenizer, config)
-    require(batch["front"].shape == batch["down"].shape == (10, 3, 224, 224), "Image shape mismatch")
-    require(batch["tokens"].shape == (10, 256) and batch["state"].shape == (10, 5), "Text/state shape mismatch")
-    for i, payload in enumerate(representatives):
-        expected = [v/100 for v in payload["position_start_m"]] + [math.sin(payload["yaw_start_rad"]), math.cos(payload["yaw_start_rad"])]
-        require(np.allclose(batch["state"][i].numpy(), expected, atol=1e-6), "State tensor normalization mismatch")
-        for view in ("front", "down"):
-            with Image.open(payload["images"][view]) as image:
-                pixels = np.asarray(image.convert("RGB").resize((224,224),Image.Resampling.BILINEAR),dtype=np.float32)/255
-            expected_image = ((pixels-np.array([.485,.456,.406],dtype=np.float32))/np.array([.229,.224,.225],dtype=np.float32)).transpose(2,0,1)
-            require(np.allclose(batch[view][i].numpy(), expected_image, atol=2e-6), "Image channels/normalization mismatch")
-    front_config = HadConfig(profile="front_relative_v1")
-    front_payloads = [{**p,"images":{"front":p["images"]["front"]}} for p in representatives]
-    front_batch = tensorize_payloads(front_payloads,tokenizer,front_config)
-    require("down" not in front_batch and torch.equal(front_batch["front"],batch["front"]), "Front input differs between profiles")
-    rejected = 0
-    for key in ("target", "future_pose", "endpoint", "route_id"):
-        try:
-            validate_payload({**representatives[0],key:None},config)
-        except ValueError:
-            rejected += 1
-    require(rejected == 4, "Supervision field accepted as model input")
-    return dict(actual_dataloader_samples_checked=checked, endpoints_checked=endpoints,
-                tensorized_observations=len(representatives), decoded_images=20,
-                image_shape=list(batch["front"].shape), state_shape=list(batch["state"].shape),
-                tokens_shape=list(batch["tokens"].shape), forbidden_fields_rejected=rejected)
 
 
 def draw_xy(ax, item):
@@ -337,15 +270,15 @@ def render(chosen,out):
 
 
 def main():
+    paths=machine_paths()
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--root",type=Path,default=Path("/mnt/f/WSL_ColdStorage/datasets/DatasetCaptureBatches/workbench"))
+    parser.add_argument("--root",type=Path,default=paths["data_root"])
     parser.add_argument("--out",type=Path,default=PROJECT/"figures")
-    parser.add_argument("--prepared",type=Path,default=PROJECT/"runs/terrain_v1/prepared")
+    parser.add_argument("--prepared",type=Path,default=paths["out_dir"]/"prepared")
     parser.add_argument("--full-audit",action="store_true",help="Reopen all source trajectories, including historical test metadata")
     args=parser.parse_args()
     if args.full_audit:
         chosen,summary,tokenizer=collect(args.root)
-        summary["actual_input"]=check_actual_input(args.root,chosen,tokenizer)
     else:
         chosen,summary,tokenizer=collect_prepared(args.root,args.prepared)
     summary["selected"]=[dict(episode_id=r["record"]["episode_id"],category=r["record"]["category"],

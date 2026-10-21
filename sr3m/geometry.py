@@ -1,4 +1,4 @@
-"""Coordinate contract shared by action plots and the closed-loop executor.
+"""Action contract and coordinate conversions shared by labels, plots and the executor.
 
 UE is left handed, +Z up (engine cm; capture position_m already meters).
 Capture yaw is degrees, positive +X toward +Y. HAD actions are current-yaw
@@ -8,8 +8,31 @@ Points subtract the configured UE origin; displacement vectors never do.
 """
 import math
 import numpy as np
-import source  # noqa: F401
-from vln_benchmark.unified.contract import adjacent_action, integrate, local_state, wrap
+
+TASK = "capture_adjacent_yaw_fru_m_rad_v1"
+
+
+def wrap(angle):
+    return (angle + math.pi) % (2 * math.pi) - math.pi
+
+
+def local_vector(delta, yaw):
+    x, y, z = delta
+    c, s = math.cos(yaw), math.sin(yaw)
+    return (c * x + s * y, -s * x + c * y, z)
+
+
+def local_state(position, yaw, origin, origin_yaw):
+    return local_vector(tuple(x-y for x, y in zip(position, origin)), origin_yaw), wrap(yaw-origin_yaw)
+
+
+def adjacent_action(position, yaw, next_position, next_yaw):
+    return (*local_vector(tuple(x-y for x, y in zip(next_position, position)), yaw), wrap(next_yaw-yaw))
+
+
+def integrate(position, yaw, action):
+    dx, dy, dz = local_vector(action[:3], -yaw)
+    return tuple(v+d for v, d in zip(position, (dx, dy, dz))), wrap(yaw+action[3])
 
 
 def fru_to_world(delta, yaw_rad):
@@ -36,4 +59,3 @@ def action_target_ned(current_ned_m, yaw_rad, action_m_rad):
 def check_climb(action_m_rad):
     if action_m_rad[2] <= 0 or ue_world_m_to_ned(action_m_rad[:3])[2] >= 0:
         raise ValueError("Climb must be positive in FRU and negative in NED")
-

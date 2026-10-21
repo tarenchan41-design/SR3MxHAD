@@ -3,10 +3,11 @@ import argparse
 from pathlib import Path
 import numpy as np
 import torch
-from experiment import PROTOCOL, PreparedSplit, read_features, read_json, write_json
-from had_model import TerrainHAD, Tokenizer
-from metrics import evaluate
-from train import predict, token_rows
+from experiments.protocol import PROTOCOL, PreparedSplit, read_features, read_json, write_json
+from had.model import TerrainHAD
+from had.tokenizer import Tokenizer
+from experiments.metrics import evaluate
+from experiments.train import predict, token_rows
 
 
 def evaluate_runs(args):

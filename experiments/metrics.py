@@ -1,7 +1,7 @@
 """Route-macro action metrics; every action mask is evaluator-owned ground truth."""
 import math
 import numpy as np
-from experiment import PROTOCOL
+from experiments.protocol import PROTOCOL
 
 NUMERIC = ("translation_m", "dx_mae_m", "dy_mae_m", "dz_mae_m", "yaw_mae_deg", "turn_yaw_mae_deg",
            "turn_sign_accuracy", "predicted_yaw_lt_1deg_fraction", "turn_predicted_yaw_lt_1deg_fraction",

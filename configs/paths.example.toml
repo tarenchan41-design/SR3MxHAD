@@ -1,0 +1,12 @@
+# Per-machine locations. Copy to configs/paths.toml (git-ignored) and edit.
+# Relative paths resolve against the repository root; ~ expands to $HOME.
+# Override the file location with SR3MXHAD_PATHS=/path/to/paths.toml.
+
+# Published capture workbench containing benchmark_split_v1/ (read-only)
+data_root = "/mnt/f/WSL_ColdStorage/datasets/DatasetCaptureBatches/workbench"
+# UE mountain terrain export with evidence/, design/ and scripts/terrain_model.py
+terrain_dir = "/mnt/e/UnrealProjects/mountain_base/military_mountains/Saved/VLNDataset/full-200"
+# Pipeline outputs: prepared/, models/, val_unseen/, probe/, decision/
+out_dir = "runs/terrain_v1"
+# Frozen ResNet50 feature cache (~2.5 GB; keep on the Linux filesystem, not /mnt)
+cache_dir = "~/sr3mxhad_runs/terrain_v1/features"

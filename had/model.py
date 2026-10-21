@@ -1,16 +1,41 @@
-"""A/B/C share the same HAD modules and initialization; only view masks differ."""
-from pathlib import Path
+"""HAD dual-view policy. A/B/C share the same modules and initialization; only view masks differ.
+
+Visual/text/fusion/policy modules are the pinned HAD implementation in had/vendor.
+Submodules are constructed in the same order as SR3M's former HadPolicy adapter
+(profile dual_relative_v1, concat fusion), so seeded initialization is unchanged.
+"""
+from dataclasses import dataclass, field
 from functools import lru_cache
 import hashlib
+from pathlib import Path
+
 import torch
+from torch import nn
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-import source  # noqa: F401
-from vln_benchmark.unified.had import HadConfig, HadPolicy
-from vln_benchmark.unified.tokenizer import ChineseTokenizer as Tokenizer
-from experiment import PROTOCOL
+from had.vendor.encoders import FrontEncoder, DownEncoder, TextEncoder
+from had.vendor.fusion import ConcatFusion
+from had.vendor.policy_head import MultiHeadPolicy
 
 DEFAULT_WEIGHTS = Path.home() / ".cache/torch/hub/checkpoints/resnet50-0676ba61.pth"
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",)}
+
+
+@dataclass
+class HadDims:
+    visual_dim: int = 512
+    text_embedding_dim: int = 300
+    text_hidden_dim: int = 512
+    text_layers: int = 2
+    height_dim: int = 64
+    fusion_dim: int = 512
+    state_dim: int = 64
+    policy_hidden_dims: list = field(default_factory=lambda: [512, 256])
+    dropout: float = .2
+
+
+SMALL = HadDims(visual_dim=8, text_embedding_dim=8, text_hidden_dim=8, text_layers=1, height_dim=4,
+                fusion_dim=8, state_dim=4, policy_hidden_dims=[8])
 
 
 def configure_precision():
@@ -33,20 +58,32 @@ def image_transform():
                                transforms.ToTensor(), transforms.Normalize([.485, .456, .406], [.229, .224, .225])])
 
 
-class TerrainHAD(HadPolicy):
+class TerrainHAD(nn.Module):
     def __init__(self, variant, tokenizer, weights=DEFAULT_WEIGHTS, *, cached_only=False, small=False):
+        super().__init__()
         configure_precision()
-        if variant not in PROTOCOL["variants"]:
+        if variant not in VARIANTS:
             raise ValueError("Variant must be A, B or C")
-        config = HadConfig(profile="dual_relative_v1", fusion="concat", init_mode="imagenet", legacy_fusion=False,
-                           train_backbone=False, dropout=.2)
-        if small:
-            config.visual_dim = 8; config.text_embedding_dim = 8; config.text_hidden_dim = 8
-            config.text_layers = 1; config.height_dim = 4; config.fusion_dim = 8
-            config.state_dim = 4; config.policy_hidden_dims = [8]
-        super().__init__(config, tokenizer)
+        self.config = c = SMALL if small else HadDims()
+        self.tokenizer = tokenizer
+        vision = dict(backbone="resnet50", pretrained=False, output_dim=c.visual_dim, freeze_bn=True)
+        self.front_encoder = FrontEncoder(**vision)
+        self.front_encoder.set_train_backbone(False)
+        self.down_encoder = DownEncoder(**vision)
+        self.down_encoder.set_train_backbone(False)
+        self.text_encoder = TextEncoder(vocab_size=tokenizer.vocab_size, embedding_dim=c.text_embedding_dim,
+                                        hidden_dim=c.text_hidden_dim, num_layers=c.text_layers, bidirectional=True,
+                                        dropout=c.dropout, encoder_type="lstm", max_len=tokenizer.max_length)
+        self.fusion = ConcatFusion(vis_dim=c.visual_dim, text_dim=self.text_encoder.output_dim, height_dim=c.height_dim,
+                                   hidden_dim=c.fusion_dim, dropout=c.dropout)
+        self.state_encoder = nn.Sequential(nn.Linear(5, c.state_dim), nn.LayerNorm(c.state_dim), nn.ReLU())
+        self.state_fusion = nn.Sequential(nn.Linear(c.fusion_dim + c.state_dim, c.fusion_dim),
+                                          nn.LayerNorm(c.fusion_dim), nn.ReLU(), nn.Dropout(c.dropout))
+        self.policy = MultiHeadPolicy(input_dim=c.fusion_dim, policy_hidden_dims=tuple(c.policy_hidden_dims),
+                                      dropout=c.dropout, yaw_strategy="baseline", dz_strategy="baseline",
+                                      use_progress_monitor=False, use_dz_sign_aux=False)
         self.variant = variant
-        self.views = tuple(PROTOCOL["variants"][variant])
+        self.views = VARIANTS[variant]
         if not cached_only:
             validate_weights(str(Path(weights).resolve()))
             weights = torch.load(weights, map_location="cpu", weights_only=True)
@@ -86,4 +123,3 @@ class TerrainHAD(HadPolicy):
         if set(state) != expected:
             raise ValueError("Checkpoint head schema differs")
         self.load_state_dict(state, strict=False)
-

@@ -1,7 +1,7 @@
 import math
 from types import SimpleNamespace as Obj
 import numpy as np
-from closed_loop import Executor
+from sr3m.sim import Executor
 
 
 def test_executor_holds_yaw_for_translation_then_rotates():

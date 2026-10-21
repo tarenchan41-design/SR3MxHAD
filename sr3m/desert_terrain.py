@@ -5,7 +5,7 @@ Produces Blender-importable OBJ previews, not UE maps or captured trajectories.
 import argparse
 from pathlib import Path
 import numpy as np
-from experiment import write_json
+import json
 
 
 def heightfields(size=257, extent_m=1000., seed=20261029, horizontal_scale=6.):
@@ -45,9 +45,9 @@ def generate(args):
         metadata.append({"name":name,"height_std_m":float(z.std()),"max_slope_deg":float(slope.max()),
                          "p95_slope_deg":float(np.quantile(slope,.95)),"height_range_m":[float(z.min()),float(z.max())]})
     np.savez(out/"heightfields.npz",axis_m=axis,height_m=fields)
-    write_json(out/"terrain.json",{"seed":args.seed,"extent_m":args.extent,"grid_size":args.size,"horizontal_scale":args.horizontal_scale,"units":"m",
+    (out/"terrain.json").write_text(json.dumps({"seed":args.seed,"extent_m":args.extent,"grid_size":args.size,"horizontal_scale":args.horizontal_scale,"units":"m",
         "method":"shared deterministic sinusoidal dune field; amplitudes std 0/10/25/50m",
-        "status":"offline_geometry_preview_not_UE_maps", "maps":metadata})
+        "status":"offline_geometry_preview_not_UE_maps", "maps":metadata},indent=2)+"\n",encoding="utf8")
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt

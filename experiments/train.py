@@ -8,9 +8,10 @@ import time
 
 import numpy as np
 import torch
-from experiment import PROTOCOL, PreparedSplit, code_version, read_features, read_json, write_json
-from had_model import TerrainHAD, Tokenizer
-from metrics import calibrate_stop, evaluate
+from experiments.protocol import PROTOCOL, PreparedSplit, code_version, read_features, read_json, write_json
+from had.model import TerrainHAD
+from had.tokenizer import Tokenizer
+from experiments.metrics import calibrate_stop, evaluate
 
 
 def token_rows(ds, tokenizer):

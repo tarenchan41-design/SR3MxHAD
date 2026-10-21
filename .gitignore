@@ -41,3 +41,6 @@ __pycache__/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Per-machine paths (configs/paths.example.toml is tracked)
+/configs/paths.toml
