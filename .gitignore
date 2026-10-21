@@ -1,0 +1,43 @@
+# Local datasets and prepared data
+/data/
+/datasets/
+/workbench/
+/artifacts/
+
+# Model weights and training/evaluation outputs
+/checkpoints/
+/weights/
+/runs/
+/results/
+/outputs/
+/logs/
+/figures/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.pkl
+*.npy
+*.npz
+
+# Python environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Local credentials and editor files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
