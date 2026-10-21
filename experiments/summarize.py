@@ -1,9 +1,16 @@
-"""Paired route analysis and the November 3 one-page decision report."""
+"""Paired route analysis and the November 3 one-page decision report.
+
+Decision (docs/protocol.md §6): H1 follow-route relative dz gain of B over A,
+H2 its growth with slope, and no harm on flat control routes. The cohort
+interaction D is descriptive only: control routes are level, so D ~ follow gain.
+"""
 import argparse
 from pathlib import Path
 import numpy as np
 from experiments.protocol import PROTOCOL, read_json, write_json
 from experiments.metrics import mean, selection_score
+
+NO_HARM_MARGIN_M = .01
 
 
 def averaged_routes(reports):
@@ -15,7 +22,9 @@ def averaged_routes(reports):
         values = [r["by_route"][episode] for r in reports]
         result = dict(values[0])
         for key in result:
-            if key not in ("category", "height_layer", "terrain_following", "map_package"):
+            if key == "slope_dz":
+                result[key] = {b: mean([r[key][b] for r in values]) for b in result[key]}
+            elif key not in ("category", "height_layer", "terrain_following", "map_package"):
                 result[key] = mean([r[key] for r in values])
         out[episode] = result
     return out
@@ -42,6 +51,40 @@ def gain(a, b, ids=None):
             "agl_matched_D_m": mean(matched) if len(matched) == 2 else None}
 
 
+def ratio_gain(a, b, ids, value):
+    """1 - mean(B)/mean(A) over follow routes; relative, so larger |dz| on steep slopes is not favoured by itself."""
+    selected = [e for e in ids if a[e]["category"] == "mountain" and a[e]["terrain_following"] and value(a[e]) is not None]
+    first, second = mean([value(a[e]) for e in selected]), mean([value(b[e]) for e in selected])
+    return 1-second/first if first else None
+
+
+def hypotheses(a, b, ids=None):
+    ids = list(a) if ids is None else ids
+    def in_bin(name): return lambda r: (r.get("slope_dz") or {}).get(name)
+    low, high = ratio_gain(a, b, ids, in_bin("low")), ratio_gain(a, b, ids, in_bin("high"))
+    control = [e for e in ids if a[e]["category"] == "mountain" and not a[e]["terrain_following"]]
+    return {"H1_follow_relative_dz_gain": ratio_gain(a, b, ids, lambda r: r["dz_mae_m"]),
+            "H2_high_minus_low_slope_gain": high-low if low is not None and high is not None else None,
+            "H2_low_slope_gain": low, "H2_high_slope_gain": high,
+            "control_dz_harm_m": mean([b[e]["dz_mae_m"]-a[e]["dz_mae_m"] for e in control]),
+            "control_translation_harm_m": mean([b[e]["translation_m"]-a[e]["translation_m"] for e in control])}
+
+
+def seed_and_route_summary(per_seed, bootstrap):
+    out = {}
+    for k in per_seed[0]:
+        seeds = [g[k] for g in per_seed]; draws = [g[k] for g in bootstrap if g[k] is not None]
+        known = None not in seeds
+        out[k] = {"by_seed": seeds, "mean": float(np.mean(seeds)) if known else None,
+                  "seed_std": float(np.std(seeds, ddof=1)) if known else None,
+                  "route_95ci": np.quantile(draws, [.025, .975]).tolist() if len(draws) == len(bootstrap) else None}
+    return out
+
+
+def positive(stat):
+    return None not in stat["by_seed"] and all(v > 0 for v in stat["by_seed"]) and stat["route_95ci"] is not None and stat["route_95ci"][0] > 0
+
+
 def relative_gain(a,b):
     result={}
     for follow in (False,True):
@@ -66,14 +109,6 @@ def paired_interval(a, b, key, draws=2000):
         ids = draw_routes(a, rng)
         points.append(metric(a, ids, key)-metric(b, ids, key))
     return np.quantile(points, [.025, .975]).tolist()
-
-
-def stable_support(interaction):
-    d=interaction["agl_matched_D_m"]
-    return (all(v>0 for v in d["by_seed"]) and d["mean"]>d["seed_std"]
-            and all(v>0 for v in interaction["follow_gain_m"]["by_seed"])
-            and d["route_95ci"][0]>0 and interaction["follow_gain_m"]["route_95ci"][0]>0
-            and interaction["raw_D_m"]["mean"]>0)
 
 
 def run(args):
@@ -111,21 +146,35 @@ def run(args):
     interaction = {k: {"mean": float(np.mean([g[k] for g in gains])), "seed_std": float(np.std([g[k] for g in gains], ddof=1)),
                        "route_95ci": np.quantile([g[k] for g in bootstrap], [.025, .975]).tolist(),
                        "by_seed": [g[k] for g in gains]} for k in gains[0]}
+    edges = reference.get("follow_slope_edges_deg")
+    if edges is None or any(r.get("follow_slope_edges_deg") != edges for rr in reports.values() for r in rr):
+        raise ValueError("Reports lack shared H2 slope bins")
+    rng = np.random.default_rng(20261022)
+    tests = seed_and_route_summary([hypotheses(a["by_route"], b["by_route"]) for a, b in zip(reports["A"], reports["B"])],
+                                   [hypotheses(averaged["A"], averaged["B"], draw_routes(averaged["A"], rng)) for _ in range(2000)])
+    h1, h2 = positive(tests["H1_follow_relative_dz_gain"]), positive(tests["H2_high_minus_low_slope_gain"])
+    no_harm = all(tests[k]["mean"] is not None and tests[k]["mean"] <= NO_HARM_MARGIN_M
+                  for k in ("control_dz_harm_m", "control_translation_harm_m"))
     probe = read_json(Path(args.probe) / "probe.json")
     readable = all(value["mae"] < value["train_mean_mae"] and value["r2"] is not None and value["r2"] > 0
                    for value in probe["splits"]["val_unseen"].values())
-    supported = stable_support(interaction)
     if not gates["A"]["passed"] or not gates["B"]["passed"]:
         decision = "训练尚未通过基线检查，先处理动作学习，暂不解释视角差异。"
-    elif supported:
-        decision = "核心假设获得首轮支持；继续双视角主线，用重建 desert 检验未见地形泛化。"
+    elif h1 and not no_harm:
+        decision = "俯视降低了随地形路线的 dz 误差，但损害平地对照路线；先检查融合方式，暂不定方向。"
+    elif h1 and h2:
+        decision = "核心假设获得支持：俯视降低随地形路线 dz 误差，且坡度越大相对收益越大；继续双视角主线，用重建 desert 检验未见地形泛化。"
+    elif h1:
+        decision = "H1 成立：俯视降低随地形路线 dz 误差；相对收益随坡度增大未获支持。继续双视角主线，主张限定为“地形跟随受益于俯视”。"
     elif not readable:
         decision = "当前结果不足以判断视角价值；俯视冻结特征线性可读性较差，优先检查深度表示。"
     else:
         decision = "当前配置未支持稳定的地形分组增益；转向 benchmark 主线，保留 HAD 基线。"
     relative=[relative_gain(a["by_route"],b["by_route"]) for a,b in zip(reports["A"],reports["B"])]
-    result = {"decision": decision, "baseline_gates": gates, "interaction": interaction,"relative_dz_gain_by_seed":relative,
-              "criteria":"Each A/B seed beats both baselines; follow gain and matched D positive in all seeds; matched D mean > seed std; route CIs positive; raw D mean positive",
+    result = {"decision": decision, "baseline_gates": gates, "hypotheses": tests, "H1": h1, "H2": h2, "no_harm": no_harm,
+              "follow_slope_edges_deg": edges, "interaction_descriptive": interaction, "relative_dz_gain_by_seed": relative,
+              "criteria": "Gates: each A/B seed beats both baselines. H1/H2: positive in all seeds and route 95% CI lower bound > 0. "
+                          f"No harm: seed-mean control dz and translation increase of B over A <= {NO_HARM_MARGIN_M} m.",
               "probe_linearly_readable": readable, "uncertainty": "route CI averages the three seeds first; seed std reported separately",
               "limitation": "one held-out mountain map; no high-AGL control; not a causal terrain experiment"}
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True); write_json(out / "summary.json", result)
@@ -140,7 +189,19 @@ def run(args):
     for variant, rr in reports.items():
         values = np.asarray([fields(r) for r in rr]); avg, sd = values.mean(0), values.std(0, ddof=1)
         lines.append("| "+variant+" | "+" | ".join(f"{m:.3f}±{s:.3f}" for m, s in zip(avg, sd))+" |")
-    lines.extend(["", "双视角增益定义为 A 的 dz MAE 减去 B；D 为随地形组增益减去对照组增益。", "",
+    def fmt(stat, scale=100, unit="%"):
+        if stat["mean"] is None: return "NA | NA"
+        ci = "NA" if stat["route_95ci"] is None else f"[{scale*stat['route_95ci'][0]:.1f}, {scale*stat['route_95ci'][1]:.1f}]"
+        return f"{scale*stat['mean']:.1f}±{scale*stat['seed_std']:.1f}{unit} | {ci}"
+    lines.extend(["", f"判据（H2 坡度分箱取自 train 随地形路线三分位：{edges[0]:.1f}° / {edges[1]:.1f}°）：", "",
+                  "| 检验 | 均值±种子标准差 | 路线配对 95% CI | 结论 |", "|---|---:|---:|---|",
+                  f"| H1 随地形相对 dz 改善 1−B/A | {fmt(tests['H1_follow_relative_dz_gain'])} | {'通过' if h1 else '未通过'} |",
+                  f"| H2 高坡−低坡相对改善 | {fmt(tests['H2_high_minus_low_slope_gain'])} | {'通过' if h2 else '未通过'} |",
+                  f"| 　低坡相对改善 | {fmt(tests['H2_low_slope_gain'])} | |",
+                  f"| 　高坡相对改善 | {fmt(tests['H2_high_slope_gain'])} | |",
+                  f"| 对照组 dz 变差 B−A | {fmt(tests['control_dz_harm_m'], unit='cm')} | {'不伤害' if no_harm else '伤害'} |",
+                  f"| 对照组平移变差 B−A | {fmt(tests['control_translation_harm_m'], unit='cm')} | |",
+                  "", "以下 D 统计仅作描述：对照组为平地定高路线（每步 |dz|≈0.3cm），D 近似等于随地形组增益。", "",
                   "| 比较 | 均值±种子标准差 cm | 路线配对 95% CI cm |", "|---|---:|---:|"])
     for key, value in interaction.items():
         lines.append(f"| {key} | {100*value['mean']:.3f}±{100*value['seed_std']:.3f} | [{100*value['route_95ci'][0]:.3f}, {100*value['route_95ci'][1]:.3f}] |")

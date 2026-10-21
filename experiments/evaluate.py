@@ -6,7 +6,7 @@ import torch
 from experiments.protocol import PROTOCOL, PreparedSplit, read_features, read_json, write_json
 from had.model import TerrainHAD
 from had.tokenizer import Tokenizer
-from experiments.metrics import evaluate
+from experiments.metrics import evaluate, follow_slope_edges
 from experiments.train import predict, token_rows
 
 
@@ -19,10 +19,11 @@ def evaluate_runs(args):
     ds = PreparedSplit(args.prepared, args.split)
     features, _ = read_features(args.cache, args.split, ds)
     statistics = read_json(Path(args.prepared) / "statistics.json")
+    edges = follow_slope_edges(PreparedSplit(args.prepared, "train"))
     tokenizer = Tokenizer.load(Path(args.prepared) / "tokenizer.json"); tokens = token_rows(ds, tokenizer)
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     for name, action in (("fixed_forward", [2., 0., 0., 0.]), ("train_mean", statistics["mean"])):
-        report = evaluate(ds, np.broadcast_to(action, (ds.n, 4)), statistics)
+        report = evaluate(ds, np.broadcast_to(action, (ds.n, 4)), statistics, follow_slope_edges=edges)
         write_json(out / f"{name}.json", dict(report, policy=name))
     for run in run_paths:
         checkpoint = torch.load(run / "best.pt", map_location="cpu", weights_only=True)
@@ -33,7 +34,7 @@ def evaluate_runs(args):
         model = TerrainHAD(identity["variant"], tokenizer, cached_only=True).to(args.device)
         model.load_head_state(checkpoint["head"])
         pred, probability = predict(model, ds, features, tokens, args.device)
-        report = evaluate(ds, pred, statistics, probability, selection["stop"]["threshold"])
+        report = evaluate(ds, pred, statistics, probability, selection["stop"]["threshold"], follow_slope_edges=edges)
         report.update(variant=identity["variant"], seed=identity["seed"], epoch=checkpoint["epoch"], selection=selection)
         write_json(out / f"{run.name}.json", report)
         np.savez(out / f"{run.name}_predictions.npz", action=pred, stop_probability=probability)
