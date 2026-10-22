@@ -222,14 +222,16 @@ def run(args):
     for name, value in probe["splits"]["val_unseen"].items():
         r2=f"{value['r2']:.3f}" if value['r2'] is not None else "NA"
         lines.append(f"- {name}: MAE {value['mae']:.3f}，基线 {value['train_mean_mae']:.3f}，R² {r2}。")
-    lines.extend(["", "| STOP | 通过校准种子数 | val_unseen precision / recall / F1 | 首次误停>20m（种子平均次数） |", "|---|---:|---:|---:|"])
+    lines.extend(["", "| STOP | 通过校准种子数 | 首次停止在 20m 内的路线占比 | 提前停 / 从不触发（种子平均路线数） | precision / recall / F1 |", "|---|---:|---:|---:|---:|"])
     for variant,rr in reports.items():
         ready=[r for r in rr if r.get("stop") is not None]
         scores=[mean([r["stop"][k] for r in ready]) for k in ("precision","recall","f1")]
         text=" / ".join(f"{v:.3f}" if v is not None else "NA" for v in scores)
-        early=mean([r["stop"]["first_stop_outside_20m"] for r in ready])
-        lines.append(f"| {variant} | {len(ready)}/3 | {text} | {early if early is not None else 'NA'} |")
-    lines.extend(["", "STOP 阈值全部来自 val_seen。未通过精确率/首次误停校准的模型不宣称具备闭环停止能力。",
+        within=mean([r["stop"]["first_stop_within_20m"]/r["stop"]["routes"] for r in ready])
+        early=mean([r["stop"]["first_stop_outside_20m"] for r in ready]); never=mean([r["stop"]["never_triggered"] for r in ready])
+        counts=" / ".join(f"{v:.1f}" if v is not None else "NA" for v in (early,never))
+        lines.append(f"| {variant} | {len(ready)}/3 | {f'{100*within:.1f}%' if within is not None else 'NA'} | {counts} | {text} |")
+    lines.extend(["", "STOP 阈值在 val_seen 上按“首次停止在 20m 内的路线最多”选取；这是沿专家轨迹的离线代理，闭环成功率以实际飞行为准。",
                   "下一阶段：Cosys-AirSim 专家回放通过后，运行预先固定的 16 条路线；新 desert 不参与调参。", ""])
     (out / "decision.md").write_text("\n".join(lines), encoding="utf8")
     print(decision, flush=True)

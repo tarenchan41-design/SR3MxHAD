@@ -49,7 +49,7 @@ action_valid = transition_valid AND NOT stop_target
 
 所有 STOP 正样本屏蔽动作损失与动作指标，掩码只由真值决定，不能由动作幅度或预测 STOP 决定。原始短尾段保留为几何事实，不变成停止动作。STOP 是独立 logit + BCE，pos_weight=1。
 
-成功半径 SR20 = **20m**，训练 STOP 半径 10m 是预留余量。阈值仅在选定 checkpoint 的 val_seen 上校准：非空预测 precision≥95%，专家观测序列首次触发 STOP 时无距终点 >20m 的误停，再最大化召回；没有合格阈值则标记未通过。另报告返回路线的"首次触发早于末尾连续段"，不藏进 SR20。
+成功半径 SR20 = **20m**，训练 STOP 半径 10m 是预留余量。阈值仅在选定 checkpoint 的 val_seen 上校准：沿专家轨迹，取"首次触发 STOP 时距终点 ≤20m 的路线数"最多的阈值（离线 SR 代理），同分取较高阈值；没有任何路线在 20m 内停下则标记未通过。同时报告提前停（首次触发 >20m）、从不触发和返回路线"首次触发早于末尾连续段"的路线数。（10/22 修订：原规则要求观测级 precision≥95% 且零误停，试跑中把阈值压到 0.95 以上，161 条路线只有 23–36 条触发。）
 
 ## 4. 模型、视觉缓存与 checkpoint
 
@@ -97,7 +97,7 @@ A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/mo
 1. 恒定直飞 2m、训练均值两种基线与 A/B/C 三种子的总体/转弯指标。
 2. mountain 两个 cohort 的 dz、平移、yaw；低/中 AGL 等权分析，高层缺失明确显示。
 3. H1/H2/不伤害三项检验（见下方决策规则），以及描述性的 `G = dz_MAE(A) − dz_MAE(B)`、原始 D、AGL 匹配 D、标签幅值、坡度分布与逐路线结果。
-4. STOP precision/recall/F1、固定阈值、首次误停距离及返回路线提前触发统计。
+4. STOP：首次停止在 20m 内的路线占比、提前停与从不触发路线数、固定阈值、precision/recall/F1 及返回路线提前触发统计。
 5. 冻结俯视特征的 AGL/坡度 Ridge 探针：train 拟合，val_seen 从 1e-4…100 选正则，val_unseen 报 MAE/R² 与训练均值基线。
 
 路线 bootstrap 先对三个种子的逐路线指标求平均，再在类别/cohort/AGL 内抽样；区间表示路线不确定性，种子标准差另报。

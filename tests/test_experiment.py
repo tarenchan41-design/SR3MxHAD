@@ -77,12 +77,15 @@ def test_selection_penalizes_straight_collapse_even_with_identical_translation()
 
 
 def test_stop_calibration_matches_exhaustive_threshold_search_and_rejects_unseen():
-    ds = fixture_data(); p = np.array([.2,.8,.95,.2,.8,.9,.1,.7,.9,.3,.8,.95])
+    ds = fixture_data(); p = np.array([.2,.8,.95,.6,.8,.9,.1,.7,.9,.85,.8,.95])
+    ds.arrays["distance_goal"] = np.tile([30.,15.,0.],4)
     actual = calibrate_stop(ds, p)
     options = [stop_metrics(ds,p,t) for t in sorted(set(p),reverse=True)]
-    eligible = [r for r in options if r["precision"] >= .95 and r["first_stop_outside_20m"] == 0]
-    expected = max(eligible, key=lambda r:(r["recall"],r["threshold"]))
-    assert actual["threshold"] == expected["threshold"] and actual["recall"] == expected["recall"]
+    expected = max(options, key=lambda r:(r["first_stop_within_20m"],r["threshold"]))
+    assert actual["threshold"] == expected["threshold"] == .9
+    assert actual["first_stop_within_20m"] == 4 and actual["first_stop_outside_20m"] == 0 and actual["never_triggered"] == 0
+    # A higher threshold leaves routes untriggered; a lower one stops route 3 at 30m.
+    assert stop_metrics(ds,p,.95)["never_triggered"] == 2 and stop_metrics(ds,p,.85)["first_stop_outside_20m"] == 1
     ds.split = "val_unseen"
     with pytest.raises(ValueError): calibrate_stop(ds,p)
 

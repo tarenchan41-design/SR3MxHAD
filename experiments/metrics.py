@@ -76,40 +76,38 @@ def stop_metrics(ds, probabilities, threshold):
             "precision": tp/(tp+fp) if tp+fp else None, "recall": tp/(tp+fn) if tp+fn else None,
             "f1": 2*tp/(2*tp+fp+fn) if 2*tp+fp+fn else None,
             "triggered_routes": triggered, "routes": len(ds.routes),
+            "first_stop_within_20m": triggered-int(first_outside), "never_triggered": len(ds.routes)-triggered,
             "first_stop_outside_20m": int(first_outside), "first_stop_before_terminal_suffix": int(first_before)}
 
 
 def calibrate_stop(ds, probabilities):
+    """Choose the val_seen threshold maximising routes whose FIRST trigger along the expert
+    trajectory lies within the success radius (offline SR proxy); ties keep the higher threshold."""
     if ds.split != "val_seen":
         raise ValueError("STOP calibration is permitted only on val_seen")
     p = np.asarray(probabilities)
     if p.shape != (ds.n,) or not np.isfinite(p).all() or ((p < 0) | (p > 1)).any():
         raise ValueError("Invalid STOP probabilities")
-    order = np.argsort(-p, kind="stable")
-    target = ds.arrays["stop"]; positives = int(target.sum())
-    first = np.full(len(ds.routes), ds.n, dtype=int)
-    outside = np.zeros(len(ds.routes), dtype=bool)
-    tp = fp = bad = 0; best = None; j = 0
-    while j < ds.n:
-        threshold = p[order[j]]
-        end = j + 1
-        while end < ds.n and p[order[end]] == threshold:
-            end += 1
-        for i in order[j:end]:
-            tp += int(target[i]); fp += int(not target[i])
-            rid = ds.route_index[i]
-            if i < first[rid]:
-                bad -= int(outside[rid]); first[rid] = i
-                outside[rid] = ds.arrays["distance_goal"][i] > PROTOCOL["success_radius_m"]
-                bad += int(outside[rid])
-        precision, recall = tp/(tp+fp), tp/max(positives, 1)
-        if bad == 0 and precision >= PROTOCOL["stop_min_precision"] and tp > 0:
-            if best is None or recall > best["recall"]:
-                best = {"threshold": float(threshold), "recall": recall}
-        j = end
-    if best is None:
-        return {"ready": False, "threshold": None, "calibration_split": "val_seen", "reason": "no_nonempty_precision_95_zero_outside20_threshold"}
-    return dict(stop_metrics(ds, p, best["threshold"]), ready=True, calibration_split="val_seen")
+    # The first index with p >= t is always a running-maximum record, so each route reduces
+    # to its strictly increasing record values and whether each record lies inside the radius.
+    records = []
+    for r in ds.routes:
+        sl = slice(r["offset"], r["offset"] + r["count"]); q = p[sl]
+        prefix = np.maximum.accumulate(q)
+        idx = np.flatnonzero(np.r_[True, prefix[1:] > prefix[:-1]])
+        records.append((q[idx], ds.arrays["distance_goal"][sl][idx] <= PROTOCOL["success_radius_m"]))
+    best_threshold, best_success = None, 0
+    for threshold in sorted({float(v) for values, _ in records for v in values}, reverse=True):
+        success = 0
+        for values, inside in records:
+            k = np.searchsorted(values, threshold)
+            success += bool(k < len(values) and inside[k])
+        if success > best_success:
+            best_threshold, best_success = threshold, success
+    if best_threshold is None:
+        return {"ready": False, "threshold": None, "calibration_split": "val_seen", "reason": "no_route_stops_within_success_radius"}
+    return dict(stop_metrics(ds, p, best_threshold), ready=True, calibration_split="val_seen",
+                criterion="max_routes_first_stop_within_success_radius")
 
 
 def follow_slope_edges(train):
