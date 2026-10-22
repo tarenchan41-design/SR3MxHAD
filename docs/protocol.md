@@ -88,7 +88,7 @@ A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/mo
 
 `python -m experiments.run_all` 按依赖顺序推进并可续跑；训练不读取 val_unseen，val_unseen 只在九次选择全部冻结后打开。
 
-**正式训练**：A/B × seeds 42/43/44（C 暂不跑，`PROTOCOL` 仍保留其定义）。AdamW lr=1e-4、wd=1e-4、batch 32、dropout 0.2；最多 30 epochs、至少 10、patience 5，最小复合 val_seen 分数选模，平分取较早。动作损失为训练 std（带下限）归一化 MSE；yaw 用包角残差，转弯/非转弯按训练频率等权。STOP BCE 权重 0.1，不做类别加权和重采样。
+**正式训练**：A/B × seeds 42/43/44（C 暂不跑，`PROTOCOL` 仍保留其定义）。AdamW lr=1e-4、wd=1e-4、batch 32、dropout 0.2；最多 40 epochs、至少 10、patience 5，最小复合 val_seen 分数选模，平分取较早。动作损失为训练 std（带下限）归一化 MSE；yaw 用包角残差，转弯/非转弯按训练频率等权。STOP BCE 权重 0.1，不做类别加权和重采样。
 
 **十路线过拟合**是工程检查：覆盖两个 cohort、三种 AGL 和四类非山地；关闭 dropout、lr=1e-3，要求归一化动作 MSE≤0.05、STOP 最佳 F1≥0.9。其权重不进入正式实验。
 

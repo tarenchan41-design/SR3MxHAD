@@ -15,14 +15,14 @@ PROTOCOL = {
     "name": "sr3m_had_terrain_v1", "language": "en", "excluded_categories": ["desert"],
     "action_contract": "capture_adjacent_yaw_fru_m_rad_v1",
     "stop_radius_m": 10., "success_radius_m": 20., "stop_positive": "terminal_contiguous_suffix",
-    "stop_pos_weight": 1., "stop_loss_weight": .1, "stop_min_precision": .95,
+    "stop_pos_weight": 1., "stop_loss_weight": .1,
     "turn_threshold_rad": math.pi / 180, "std_floor": [.05, .05, .05, math.pi / 180],
     "seeds": [42, 43, 44], "variants": {"A": ["front"], "B": ["front", "down"], "C": ["down"]},
     "image_size": 224, "backbone": "resnet50", "weights": "IMAGENET1K_V1:resnet50-0676ba61",
     "feature_dim": 2048, "dropout": .2,
     "precision": "float32_ieee_no_tf32",
     "optimizer": {"name": "AdamW", "lr": 1e-4, "weight_decay": 1e-4, "batch_size": 32,
-                  "max_epochs": 30, "min_epochs": 10, "patience": 5, "gradient_clip": 5.},
+                  "max_epochs": 40, "min_epochs": 10, "patience": 5, "gradient_clip": 5.},
     "selection": "equal_normalized_route_macro_translation_turn_yaw_cohort_macro_mountain_dz",
 }
 EXPECTED = {"train": 898, "val_seen": 161, "val_unseen": 199, "test": 147}
