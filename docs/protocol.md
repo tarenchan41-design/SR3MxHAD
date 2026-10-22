@@ -1,8 +1,10 @@
 # SR3M × HAD 实验协议
 
-本文件是实验的执行合同：数据、动作坐标、STOP、缓存、评测、11/3 离线决策和闭环流程。研究动机与时间线见 [research_plan.md](research_plan.md)。代码中的常量以 `experiments/protocol.py` 的 `PROTOCOL` 为准；改动 `PROTOCOL` 会使已有 prepared 数据和特征缓存失效。
+本文件是实验的执行合同：数据、动作坐标、STOP、缓存、评测、离线决策和闭环流程。研究动机与时间线见 [research_plan.md](research_plan.md)。代码中的常量以 `experiments/protocol.py` 的 `PROTOCOL` 为准；改动 `PROTOCOL` 会使已有 prepared 数据和特征缓存失效。
 
 ## 1. 实验数据与语言
+
+> 10/22 修订：desert 将按 mountain 的设计重建 4 张起伏地图，发布为 `benchmark_split_v2`（3 张图进 train/val_seen，1 张整图进 val_unseen，其他场景路线归属不变），替代旧 desert 并加入训练；正式训练、11/10 决策都在 v2 上进行。本节的数字是 v1 过滤视图（试跑使用），v2 发布后更新。
 
 原始发布划分为 1027/184/199/196 条。主实验只创建过滤视图，不改原始 JSONL、不重分配路线；旧 desert 全部排除后为 train/val_seen/val_unseen/test = 898/161/199/147 条。原始数据和地形导出的位置见 `configs/paths.toml`，均只读。
 
@@ -14,7 +16,7 @@
 | val_seen | 19348 | 19187 | 966 | 18382 |
 | val_unseen | 23150 | 22951 | 1196 | 21954 |
 
-prepare 不读取既有 test 的捕获与动作，只在发布索引身份检查中包含其 JSONL。test 不参与本轮选模与开发；重建 desert 承担新的未见地形外测。
+prepare 不读取既有 test 的捕获与动作，只在发布索引身份检查中包含其 JSONL。test 不参与本轮选模与开发；新 desert 的留出地图进入 val_unseen 主评测。
 
 ## 2. 动作坐标与 yaw
 
@@ -73,20 +75,20 @@ A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/mo
 
 仅用过滤后的 train 拟合词表、动作均值/尺度和坡度分箱。动作指标先逐路线后平均。选模分数等权合并：逐分量尺度归一化的平移 RMS、|dyaw|≥1° 的归一化环形 yaw MAE、mountain 两 cohort 等权的归一化 dz MAE；尺度 std 下限 0.05/0.05/0.05m 和 1°。
 
-## 6. 离线实验（11/3 前）
+## 6. 离线实验（11/10 决策）
 
 | 日期 | 交付 | 入口 |
 |---|---|---|
-| 10/21–23 | 英文输入、STOP、地图/地形绑定、分组、16 路线固定 | `experiments/prepare.py` |
-| 10/24–26 | 十路线过拟合、缓存一致性、基线与 epoch 计时 | `overfit.py`、`cache.py` |
-| 10/27–29 | A/B/C 首个种子，只看 val_seen | `train.py` |
-| 10/30–11/1 | 其余六次训练，冻结 checkpoint/阈值 | `train.py` → `selection.json` |
-| 11/2 | val_unseen 分组报告、线性探针、配对区间 | `evaluate.py`、`probe.py`、`summarize.py` |
-| 11/3 | 一页研究决策 | `decision/decision.md` |
+| 10/21–22 | 英文输入、STOP、地形绑定、分组、过拟合、缓存；A/B 种子 42 试跑（v1，只看 val_seen） | `experiments/prepare.py`、`overfit.py`、`cache.py`、`train.py` |
+| 10/22–30 | desert 重建与采集，发布 `benchmark_split_v2` | 数据集侧 |
+| 10/31–11/2 | v2 上 prepare 与缓存 | `prepare.py`、`cache.py` |
+| 11/2–11/7 | A/B × 三种子训练，冻结 checkpoint/阈值；C 暂不跑 | `train.py` → `selection.json` |
+| 11/7–11/9 | val_unseen 分组报告、线性探针、配对区间 | `evaluate.py`、`probe.py`、`summarize.py` |
+| 11/10 | 一页研究决策 | `decision/decision.md` |
 
 `python -m experiments.run_all` 按依赖顺序推进并可续跑；训练不读取 val_unseen，val_unseen 只在九次选择全部冻结后打开。
 
-**九次训练**：A/B/C × seeds 42/43/44。AdamW lr=1e-4、wd=1e-4、batch 32、dropout 0.2；最多 30 epochs、至少 10、patience 5，最小复合 val_seen 分数选模，平分取较早。动作损失为训练 std（带下限）归一化 MSE；yaw 用包角残差，转弯/非转弯按训练频率等权。STOP BCE 权重 0.1，不做类别加权和重采样。
+**正式训练**：A/B × seeds 42/43/44（C 暂不跑，`PROTOCOL` 仍保留其定义）。AdamW lr=1e-4、wd=1e-4、batch 32、dropout 0.2；最多 30 epochs、至少 10、patience 5，最小复合 val_seen 分数选模，平分取较早。动作损失为训练 std（带下限）归一化 MSE；yaw 用包角残差，转弯/非转弯按训练频率等权。STOP BCE 权重 0.1，不做类别加权和重采样。
 
 **十路线过拟合**是工程检查：覆盖两个 cohort、三种 AGL 和四类非山地；关闭 dropout、lr=1e-3，要求归一化动作 MSE≤0.05、STOP 最佳 F1≥0.9。其权重不进入正式实验。
 
@@ -104,15 +106,15 @@ A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/mo
 
 - 背景：train 中对照组 57 条路线全部是平地上定高飞行（每步 |dz| 0.26cm、地形坡度 0.3°），随地形组每步 |dz| 39cm、坡度 18.8°。因此对照组 dz 增益上限约 0.3cm，原来的交互统计 D 几乎等于随地形组增益，不能检验"地形越复杂越有用"；绝对增益随坡度增大也是 |dz| 变大带来的必然结果。判据改为相对量。
 - **门槛**：A、B 每个种子的综合分数和转弯 yaw 都须优于两种基线，且三种子平均的配对改善区间下界为正。
-- **H1（主判据）**：val_unseen 随地形组相对 dz 改善 `R = 1 − dzMAE(B)/dzMAE(A)`（逐路线 dz MAE 的路线平均之比）。三个种子 R 均 >0，且路线 bootstrap 95% CI 下界 >0。不设最小效应量。
+- **H1（主判据）**：val_unseen（mountain 与 desert 的留出地图）随地形组相对 dz 改善 `R = 1 − dzMAE(B)/dzMAE(A)`（逐路线 dz MAE 的路线平均之比）。三个种子 R 均 >0，且路线 bootstrap 95% CI 下界 >0。不设最小效应量。
 - **H2（支撑）**：坡度分箱为 train 随地形路线有效步的坡度三分位（实测 1.93° / 21.57°，三档每步 |dz| 约 8/15/94cm）。统计高坡档 R − 低坡档 R，三种子均 >0 且 CI 下界 >0 为通过。
 - **不伤害**：对照组 B 相对 A 的 dz MAE 与平移误差增加量（种子平均）均 ≤ 1cm。
 - 结论：门槛未过 → 先处理动作学习；H1 过但伤害对照 → 先查融合；H1+H2 → 核心假设成立，继续主线；仅 H1 → 继续主线，主张限定为"地形跟随受益于俯视"；H1 未过且俯视探针不可读 → 先查深度表示；否则 → 转 benchmark。
 - 原始 D、AGL 匹配 D、相对改善与各层结果保留为描述性报告。C 未过关仅作诊断。线性探针失败不能写成"俯视图没有信息"。此结果只是单张留出 mountain 地图的首轮证据。
 
-## 7. 闭环（11/4 后）与 desert
+## 7. 闭环与 desert
 
-闭环不阻塞 11/3 决策。`sr3m/sim.py` 提供执行器，`experiments/closed_loop.py` 运行专家回放门槛和模型飞行；单元测试不替代真实 UE 验收。
+闭环不阻塞离线决策。`sr3m/sim.py` 提供执行器，`experiments/closed_loop.py` 运行专家回放门槛和模型飞行；单元测试不替代真实 UE 验收。
 
 **仿真准备**：用 UE 5.8.4 从源码构建 Cosys-AirSim 插件（预编译 5.8.2 不直接用），启用 Python API；MCP 不是依赖。复制 `configs/cosys_settings.example.json` 到实验设置位置，核对 front/down 相机 512×512、90° FOV、曝光和朝向与捕获一致；gimbal 固定 pitch/roll、yaw 跟随机体，用 `simGetCameraInfo` 和真实图像验收，尤其俯视 −90°。Python 环境安装 `cosysairsim`。手动打开路线对应的完整 map package、初始化到起点、记录 AirSim 原点在 UE 世界中的米坐标；运行时显式提供 `--map-package` 和 `--origin-ue-m`。
 
@@ -128,7 +130,7 @@ python -m experiments.closed_loop --prepared runs/terrain_v1/prepared \
 
 成功率用 SR20，另报路线进度、碰撞、超时和提前 STOP，标明返回型路线的解释边界。
 
-**Desert（11/10 前）**：`python -m sr3m.desert_terrain --out runs/desert_preview` 用种子 20261029、1000m 区域、257×257 网格生成共享基础沙丘场，四档高程 std 0/10/25/50m，最大坡度约 0/6.77/16.53/30.68°；输出 OBJ、heightfields 和预览，仅为离线几何。后续：Blender 建模、材质/地标控制、UE 导入、AGL 路线与指令；四档保持材质、照明、相机、AGL 与任务分布可比。四图全部为未见地形测试，不能用于词表、归一化、超参、checkpoint 或阈值选择。
+**Desert（10/30 前采集）**：沙丘生成方法由数据集侧自行确定（`sr3m/desert_terrain.py` 只是早期的四档起伏预览，不再是定稿方案）。要求：4 张图用不同沙丘场，每张图内都有平缓到陡峭的区域；每张图同时包含"随沿途地形调整高度"路线和在起伏上定高的路线（AGL 中/高层）；复用 mountain 的 AGL 分层、连续离地检查与采集流程。为接入 prepare，每张图需提供与 mountain 相同的地形产物：`scripts/terrain_model.py`、`evidence/persisted-<图ID>.json`、`evidence/continuous-agl-<图ID>.json`、`design/<图ID>.final.json`（含 `route_id`、`instruction_zh`、`height_layer`）。新数据发布为 `benchmark_split_v2`，不原地覆盖 v1；旧 desert 捕获保留不删。留出地图只进 val_unseen，不参与词表、统计、超参、checkpoint 或阈值选择。
 
 ## 8. 代码来源
 
