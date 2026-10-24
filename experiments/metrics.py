@@ -1,7 +1,7 @@
 """Route-macro action metrics; every action mask is evaluator-owned ground truth."""
 import math
 import numpy as np
-from experiments.protocol import PROTOCOL
+from experiments.protocol import PROTOCOL, TERRAIN
 
 NUMERIC = ("translation_m", "dx_mae_m", "dy_mae_m", "dz_mae_m", "yaw_mae_deg", "turn_yaw_mae_deg",
            "turn_sign_accuracy", "predicted_yaw_lt_1deg_fraction", "turn_predicted_yaw_lt_1deg_fraction",
@@ -51,7 +51,7 @@ def selection_score(by_route):
     values = list(by_route.values())
     xyz = mean([r.get("normalized_translation") for r in values])
     yaw = mean([r.get("normalized_turn_yaw") for r in values])
-    dz = [mean([r.get("normalized_dz") for r in values if r["category"] == "mountain" and r["terrain_following"] == follow])
+    dz = [mean([r.get("normalized_dz") for r in values if r["category"] in TERRAIN and r["terrain_following"] == follow])
           for follow in (False, True)]
     if xyz is None or yaw is None or None in dz:
         return None
@@ -116,7 +116,7 @@ def follow_slope_edges(train):
         raise ValueError("H2 slope bins are fitted on train only")
     values = []
     for r in train.routes:
-        if r["category"] == "mountain" and r["terrain_following"]:
+        if r["category"] in TERRAIN and r["terrain_following"]:
             sl = slice(r["offset"], r["offset"]+r["count"])
             values.append(train.arrays["slope"][sl][train.arrays["action_valid"][sl]])
     return np.quantile(np.concatenate(values), [1/3, 2/3]).tolist()
@@ -132,7 +132,7 @@ def evaluate(ds, prediction, statistics, probabilities=None, threshold=None, fol
         sl = slice(r["offset"], r["offset"]+r["count"])
         errors = route_errors(ds.arrays["action"][sl], prediction[sl], ds.arrays["action_valid"][sl], scale)
         by_route[r["episode_id"]] = dict(errors, **{k: r[k] for k in ("category", "height_layer", "terrain_following", "map_package")})
-        if follow_slope_edges is not None and r["category"] == "mountain":
+        if follow_slope_edges is not None and r["category"] in TERRAIN:
             # Per-route dz MAE inside each H2 slope bin; None when the route has no steps there.
             edges = [-math.inf, *follow_slope_edges, math.inf]; slope = ds.arrays["slope"][sl]
             by_route[r["episode_id"]]["slope_dz"] = {
@@ -141,19 +141,21 @@ def evaluate(ds, prediction, statistics, probabilities=None, threshold=None, fol
                 for name, lo, hi in zip(("low", "medium", "high"), edges[:-1], edges[1:])}
     numeric = {k: {kk: vv for kk, vv in v.items() if kk not in ("category", "height_layer", "terrain_following", "map_package")}
                for k, v in by_route.items()}
-    groups = {}
-    for follow in (False, True):
-        cohort = "follow" if follow else "control"
-        for layer in (None, "low", "medium", "high"):
-            ids = [r["episode_id"] for r in ds.routes if r["category"] == "mountain" and r["terrain_following"] == follow
-                   and (layer is None or r["height_layer"] == layer)]
-            groups[f"{cohort}/{layer or 'all'}"] = macro([numeric[i] for i in ids])
+    def cohorts(categories):
+        groups = {}
+        for follow in (False, True):
+            cohort = "follow" if follow else "control"
+            for layer in (None, "low", "medium", "high"):
+                ids = [r["episode_id"] for r in ds.routes if r["category"] in categories and r["terrain_following"] == follow
+                       and (layer is None or r["height_layer"] == layer)]
+                groups[f"{cohort}/{layer or 'all'}"] = macro([numeric[i] for i in ids])
+        return groups
     slope_groups = {}
     edges = [-math.inf, *statistics["slope_bins_deg"], math.inf]
     for name, lo, hi in zip(("low", "medium", "high"), edges[:-1], edges[1:]):
         results = []
         for r in ds.routes:
-            if r["category"] != "mountain": continue
+            if r["category"] not in TERRAIN: continue
             sl = slice(r["offset"], r["offset"]+r["count"])
             slope = ds.arrays["slope"][sl]
             mask = ds.arrays["action_valid"][sl] & (slope > lo) & (slope <= hi)
@@ -163,7 +165,8 @@ def evaluate(ds, prediction, statistics, probabilities=None, threshold=None, fol
                 for category in sorted({r["category"] for r in ds.routes})}
     return {"split": ds.split, "prepared":getattr(ds,"protocol",None), "selection_score": selection_score(by_route), "overall": macro(list(numeric.values())),
             "by_category":categories,
-            "mountain": groups, "mountain_slope": slope_groups, "slope_edges_deg": statistics["slope_bins_deg"],
+            "terrain": cohorts(TERRAIN), "terrain_by_category": {c: cohorts((c,)) for c in TERRAIN},
+            "terrain_slope": slope_groups, "slope_edges_deg": statistics["slope_bins_deg"],
             "by_route": by_route, "action_mask": "ground_truth_transition_valid_AND_NOT_stop_target",
             "follow_slope_edges_deg": follow_slope_edges,
             "stop": stop_metrics(ds, probabilities, threshold) if probabilities is not None and threshold is not None else None,

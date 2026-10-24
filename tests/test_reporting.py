@@ -10,17 +10,19 @@ from experiments.summarize import positive,run
 
 def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
     routes=[];offset=0
-    specs=[(True,"low")]*17+[(True,"medium")]*13+[(True,"high")]*7+[(False,"low")]*7+[(False,"medium")]*4+[(False,None)]*151
-    for i,(follow,layer) in enumerate(specs):
-        routes.append({"episode_id":str(i),"category":"mountain" if layer else "airfields","terrain_following":follow,
-                       "height_layer":layer,"map_package":"/Game/Mountain" if layer else "/Game/Air","offset":offset,"count":3})
+    terrain=[(True,"low")]*17+[(True,"medium")]*13+[(True,"high")]*7+[(False,"low")]*7+[(False,"medium")]*4
+    specs=[("mountain",*x) for x in terrain]+[("desert",*x) for x in terrain]+[("airfields",False,None)]*151
+    n=len(specs); assert n==247
+    for i,(category,follow,layer) in enumerate(specs):
+        routes.append({"episode_id":str(i),"category":category,"terrain_following":follow,
+                       "height_layer":layer,"map_package":f"/Game/{category}","offset":offset,"count":3})
         offset+=3
-    target=np.tile([[2.,0.,0.,.1],[2.,0.,0.,0.],[np.nan]*4],(199,1))
+    target=np.tile([[2.,0.,0.,.1],[2.,0.,0.,0.],[np.nan]*4],(n,1))
     for r in routes:
         if r["height_layer"] and r["terrain_following"]: target[r["offset"]:r["offset"]+2,2]=.4
-    ds=SimpleNamespace(n=offset,routes=routes,split="val_unseen",protocol={"protocol":PROTOCOL},route_index=np.repeat(np.arange(199),3),
-        arrays={"action":target,"action_valid":np.tile([True,True,False],199),"stop":np.tile([False,False,True],199),
-                "distance_goal":np.tile([30.,15.,0.],199),"slope":np.tile([1.,8.,8.],199)})
+    ds=SimpleNamespace(n=offset,routes=routes,split="val_unseen",protocol={"protocol":PROTOCOL},route_index=np.repeat(np.arange(n),3),
+        arrays={"action":target,"action_valid":np.tile([True,True,False],n),"stop":np.tile([False,False,True],n),
+                "distance_goal":np.tile([30.,15.,0.],n),"slope":np.tile([1.,8.,8.],n)})
     stats={"scale":[1.,1.,1.,1.],"slope_bins_deg":[2.,5.]}
     results=tmp_path/"results";results.mkdir()
     for name,action in (("fixed_forward",[2.,0.,0.,0.]),("train_mean",[2.,0.,.08,0.])):
@@ -35,7 +37,7 @@ def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
                 else: dz=(.01,.01)
                 for step in range(2): pred[r["offset"]+step,2]+=dz[step]*(1+(seed-43)*.01)
                 pred[r["offset"],3]+={"A":.03,"B":.02,"C":.04}[variant]
-            report=evaluate(ds,pred,stats,np.tile([.1,.2,.9],199),.5,follow_slope_edges=[2.,5.])
+            report=evaluate(ds,pred,stats,np.tile([.1,.2,.9],n),.5,follow_slope_edges=[2.,5.])
             report.update(variant=variant,seed=seed,selection={"split":"val_seen"})
             write_json(results/f"{variant}_seed{seed}.json",report)
     probe=tmp_path/"probe";probe.mkdir()
@@ -50,8 +52,11 @@ def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
     assert summary["H1"] and summary["H2"] and summary["no_harm"]
     assert "核心假设获得支持" in summary["decision"]
     assert summary["interaction_descriptive"]["agl_matched_D_m"]["mean"]==pytest.approx(.043)
+    for category in ("mountain","desert"):
+        assert summary["hypotheses_by_category_descriptive"][category]["H1_follow_relative_dz_gain"]["mean"]==pytest.approx(.45)
     text=(tmp_path/"decision/decision.md").read_text()
-    assert "7/0" in text and "NA" in text and "STOP" in text and "H1" in text and "仅作描述" in text
+    assert "34/14、26/8、14/0" in text and "mountain 37/11" in text and "desert 37/11" in text
+    assert "NA" in text and "STOP" in text and "H1" in text and "仅作描述" in text and "高 AGL 无对照" in text
 
 
 def test_unfinished_nine_runs_cannot_open_held_out_data(tmp_path,monkeypatch):

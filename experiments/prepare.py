@@ -1,4 +1,4 @@
-"""Prepare the non-desert experiment from immutable published capture indices."""
+"""Prepare the terrain experiment from immutable published capture indices."""
 import argparse
 from collections import Counter
 import gc
@@ -8,26 +8,37 @@ from pathlib import Path
 import re
 
 import numpy as np
-from sr3m.data import CaptureRoutes, INDEX_DIR, split_hashes
+from sr3m.data import CaptureRoutes, split_hashes
 from sr3m.geometry import adjacent_action
 from sr3m.sim import EXECUTOR
 from had.tokenizer import Tokenizer
-from experiments.protocol import PROTOCOL, EXPECTED, action_statistics, code_version, machine_paths, read_json, stop_suffix, terrain_following, write_json
+from experiments.protocol import PROTOCOL, EXPECTED, TERRAIN, action_statistics, code_version, machine_paths, read_json, stop_suffix, terrain_following, write_json
+
+
+MAPS = {"mountain": ("L_MTN_A", "L_MTN_B", "L_MTN_C", "L_MTN_D"), "desert": ("L_DES_A", "L_DES_B", "L_DES_C", "L_DES_D")}
 
 
 def load_split(root, split):
-    rows = [__import__("json").loads(line) for line in (root / INDEX_DIR / f"{split}.jsonl").read_text().splitlines()]
-    selected = {r["episode_id"] for r in rows if r["category"] != "desert"}
-    if len(selected) != EXPECTED[split]:
-        raise ValueError(f"Unexpected filtered {split} route count: {len(selected)}")
-    return CaptureRoutes(root, split, selected)
+    ds = CaptureRoutes(root, split, index=PROTOCOL["index"])
+    if len(ds.routes) != EXPECTED[split]:
+        raise ValueError(f"Unexpected {split} route count: {len(ds.routes)}")
+    return ds
 
 
-def derive_terrain(datasets, terrain_dir):
+def derive_terrain(datasets, terrain_dirs):
+    labels, bindings = {}, {}
+    for category in TERRAIN:
+        derive_category(datasets, terrain_dirs[category], MAPS[category], labels, bindings)
+    expected = sum(r["record"]["category"] in TERRAIN for ds in datasets.values() for r in ds.routes)
+    if len(labels) != expected:
+        raise ValueError(f"Expected all {expected} terrain routes, got {len(labels)}")
+    return labels, bindings
+
+
+def derive_category(datasets, terrain_dir, maps, labels, bindings):
     spec = importlib.util.spec_from_file_location("sr3m_ground", terrain_dir / "scripts/terrain_model.py")
     module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-    labels, bindings = {}, {}
-    for mapid in ("L_MTN_A", "L_MTN_B", "L_MTN_C", "L_MTN_D"):
+    for mapid in maps:
         persisted = read_json(terrain_dir / "evidence" / f"persisted-{mapid}.json")
         cert = read_json(terrain_dir / "evidence" / f"continuous-agl-{mapid}.json")
         design = read_json(terrain_dir / "design" / f"{mapid}.final.json")
@@ -67,9 +78,6 @@ def derive_terrain(datasets, terrain_dir):
                 labels[record["episode_id"]] = (layer, agl.astype("float32"), slope.astype("float32"))
         print(f"terrain {mapid}: bound and queried", flush=True)
         del terrain; gc.collect()
-    if len(labels) != 201:
-        raise ValueError(f"Expected all 201 mountain routes, got {len(labels)}")
-    return labels, bindings
 
 
 def compact(ds, terrain):
@@ -92,7 +100,7 @@ def compact(ds, terrain):
                        "route_group_id": record["route_group_id"], "map_package": r["map_package"],
                        "category": record["category"], "instruction": record["instruction"],
                        "instruction_zh": record["instruction_zh"], "height_layer": layer,
-                       "terrain_following": terrain_following(record) if record["category"] == "mountain" else False,
+                       "terrain_following": terrain_following(record) if record["category"] in TERRAIN else False,
                        "directory": r["directory"].relative_to(ds.root).as_posix(),
                        "images": {v: [img[v] for img in r["images"]] for v in ("front", "down")},
                        "offset": offset, "count": n,
@@ -118,7 +126,7 @@ def choose_closed_loop(routes):
             selected.extend(candidates[:3])
     selected.extend(sorted((r for r in routes if r["category"] == "mountain" and r["height_layer"] == "high"
                             and r["terrain_following"]), key=lambda r: r["episode_id"])[:2])
-    other = [r for r in routes if r["category"] != "mountain"]
+    other = [r for r in routes if r["category"] not in TERRAIN]
     straight = sorted((r for r in other if r["start_goal_m"] > 20), key=lambda r: (r["total_turn_rad"], r["episode_id"]))
     returns = sorted((r for r in other if r["start_goal_m"] <= 20 and r["length_m"] >= 80), key=lambda r: r["episode_id"])
     if not straight or not returns:
@@ -139,7 +147,7 @@ def prepare(args):
     for split in ("train", "val_seen", "val_unseen"):
         datasets[split] = load_split(root, split)
         print(f"loaded {split}: {len(datasets[split].routes)} routes", flush=True)
-    labels, bindings = derive_terrain(datasets, Path(args.terrain))
+    labels, bindings = derive_terrain(datasets, {"mountain": Path(args.terrain), "desert": Path(args.desert_terrain)})
     out.mkdir(parents=True)
     all_routes, arrays, diagnostics = {}, {}, {}
     for split, ds in datasets.items():
@@ -147,18 +155,18 @@ def prepare(args):
         write_json(out / f"{split}.json", all_routes[split])
         np.savez(out / f"{split}.npz", **arrays[split])
         a = arrays[split]
-        counts = Counter(f"{'follow' if r['terrain_following'] else 'control'}/{r['height_layer']}"
-                         for r in all_routes[split] if r["category"] == "mountain")
+        counts = Counter(f"{r['category']}/{'follow' if r['terrain_following'] else 'control'}/{r['height_layer']}"
+                         for r in all_routes[split] if r["category"] in TERRAIN)
         diagnostics[split] = {"routes": len(ds.routes), "observations": len(a["state"]),
             "action_valid": int(a["action_valid"].sum()), "stop_positive": int(a["stop"].sum()),
-            "mountain_cohorts": dict(counts), "height_missing_nonmountain": int(np.isnan(a["agl"]).sum())}
+            "terrain_cohorts": dict(sorted(counts.items())), "height_missing_nonterrain": int(np.isnan(a["agl"]).sum())}
     stats = action_statistics(arrays["train"]["action"], arrays["train"]["action_valid"])
     slope = arrays["train"]["slope"]; stats["slope_bins_deg"] = np.quantile(slope[np.isfinite(slope)], [1/3, 2/3]).tolist()
     tokenizer = Tokenizer.fit([r["instruction"] for r in all_routes["train"]], max_length=256)
     tokenizer.save(out / "tokenizer.json")
     write_json(out / "statistics.json", stats)
     write_json(out / "closed_loop_routes.json", choose_closed_loop(all_routes["val_seen"]))
-    info = {"protocol": PROTOCOL, "source_split": split_hashes(root / INDEX_DIR),
+    info = {"protocol": PROTOCOL, "source_split": split_hashes(root / PROTOCOL["index"]),
             "terrain_bindings": bindings, "code": code_version(), "routes": {s: EXPECTED[s] for s in datasets},
             "prepared_version": 1}
     write_json(out / "protocol.json", info)
@@ -178,7 +186,8 @@ if __name__ == "__main__":
     paths = machine_paths()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=paths["data_root"])
-    parser.add_argument("--terrain", type=Path, default=paths["terrain_dir"])
+    parser.add_argument("--terrain", type=Path, default=paths["terrain_dir"], help="Mountain terrain export")
+    parser.add_argument("--desert-terrain", type=Path, default=paths["desert_terrain_dir"], help="Desert terrain export")
     parser.add_argument("--out", required=True)
     prepare(parser.parse_args())
 

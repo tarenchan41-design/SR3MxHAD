@@ -25,7 +25,7 @@ def run(args):
                            env=environment,stdout=log,stderr=subprocess.STDOUT,check=True)
     try:
         if not (prepared/"protocol.json").exists():
-            stage("prepare","prepare",["--root",args.root,"--terrain",args.terrain,"--out",prepared])
+            stage("prepare","prepare",["--root",args.root,"--terrain",args.terrain,"--desert-terrain",args.desert_terrain,"--out",prepared])
         elif read_json(prepared/"protocol.json")["protocol"]!=PROTOCOL:
             raise ValueError("Existing preparation uses another protocol")
         stage("overfit","overfit",["--prepared",prepared,"--root",args.root,"--out",out/"overfit","--device",args.device])
@@ -45,5 +45,6 @@ if __name__=="__main__":
     paths=machine_paths()
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--root",default=str(paths["data_root"]));p.add_argument("--terrain",default=str(paths["terrain_dir"]))
+    p.add_argument("--desert-terrain",default=str(paths["desert_terrain_dir"]))
     p.add_argument("--out",default=str(paths["out_dir"]));p.add_argument("--cache",default=str(paths["cache_dir"]))
     p.add_argument("--device",default="cuda");run(p.parse_args())

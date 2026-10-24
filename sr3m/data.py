@@ -9,7 +9,7 @@ import re
 import numpy as np
 
 SPLITS = ("train", "val_seen", "val_unseen", "test")
-INDEX_DIR = "benchmark_split_v1"
+INDEX_DIR = "benchmark_split_v2"  # v1 stays readable by passing index="benchmark_split_v1"
 
 
 def local_path(value):
@@ -128,9 +128,9 @@ def iter_split(root, index_dir, split):
 
 class CaptureRoutes:
     """Validated poses and image names for the selected routes of one published split."""
-    def __init__(self, root, split, selected=None):
+    def __init__(self, root, split, selected=None, index=INDEX_DIR):
         self.root = local_path(root).resolve()
-        self.indices = self.root / INDEX_DIR
+        self.indices = self.root / index
         self.split, self.routes = split, []
         requested = None if selected is None else set(selected)
         for record, ep in iter_split(self.root, self.indices, split):

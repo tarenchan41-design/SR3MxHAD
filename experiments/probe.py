@@ -2,21 +2,21 @@
 import argparse
 from pathlib import Path
 import numpy as np
-from experiments.protocol import PreparedSplit, read_features, write_json
+from experiments.protocol import TERRAIN, PreparedSplit, read_features, write_json
 
 ALPHAS = [1e-4, 1e-3, 1e-2, .1, 1., 10., 100.]
 
 
 def observations(ds):
     ids, weights, layers = [], [], []
-    routes = [r for r in ds.routes if r["category"] == "mountain"]
+    routes = [r for r in ds.routes if r["category"] in TERRAIN]
     for r in routes:
         ids.extend(range(r["offset"], r["offset"]+r["count"]))
         weights.extend([1/(len(routes)*r["count"])]*r["count"])
         layers.extend([r["height_layer"]]*r["count"])
     ids = np.asarray(ids)
     targets = np.column_stack((ds.arrays["agl"][ids], ds.arrays["slope"][ids])).astype(float)
-    if not np.isfinite(targets).all(): raise ValueError("Missing mountain probe targets")
+    if not np.isfinite(targets).all(): raise ValueError("Missing terrain probe targets")
     return ids, np.asarray(weights), np.asarray(layers), targets
 
 

@@ -4,17 +4,19 @@
 
 ## 1. 实验数据与语言
 
-> 10/22 修订：desert 将按 mountain 的设计重建 4 张起伏地图，发布为 `benchmark_split_v2`（3 张图进 train/val_seen，1 张整图进 val_unseen，其他场景路线归属不变），替代旧 desert 并加入训练；正式训练、11/10 决策都在 v2 上进行。本节的数字是 v1 过滤视图（试跑使用），v2 发布后更新。
+> 10/23：`benchmark_split_v2` 已发布（`python -m sr3m.release_v2`），正式训练与 11/10 决策都在 v2 上进行。v2 = v1 去掉旧 desert 的全部 201 条（train/val_seen/test = 129/23/49，捕获保留不删），其余 v1 行逐字节不变；加入重建的 desert 4 图 201 条：L_DES_A/B/D 按 v1 同一规则（同种子、15% 路线组配额）分 train 130 / val_seen 23，**L_DES_C 整图 48 条进 val_unseen**。分配代码复现 v1 全部 1606 条（0 差异）。v1 试跑（`runs/terrain_v1/pilot/`）只作参考，不与 v2 结果比较。
 
-原始发布划分为 1027/184/199/196 条。主实验只创建过滤视图，不改原始 JSONL、不重分配路线；旧 desert 全部排除后为 train/val_seen/val_unseen/test = 898/161/199/147 条。原始数据和地形导出的位置见 `configs/paths.toml`，均只读。
+v2 划分为 train/val_seen/val_unseen/test = 1028/184/247/147 条，主实验直接使用，不再过滤。prepare 后 v1 原有的 898/161/199 条路线在 v2 中逐条一致（标签与数组均相同）。原始数据和地形导出的位置见 `configs/paths.toml`，均只读。
 
-英文译文在捕获文件和索引的 `instruction`，中文原文在 `instruction_zh`。读取器验证索引、捕获与 source-plan 的一致性；分组使用中文原文，策略使用英文。仅用 898 条训练指令拟合词表，实测 1,330 项、上限 256 tokens，三集合均无截断。val_seen/unseen 未知 token 占比约 0.673%/2.112%，不反向扩充词表。
+新 desert 地形起伏大、太阳高度角低（俯仰 −32°…−40°），背光面能见度很低：201 条中 77 条有黑色像素 >20% 的帧（共 6174 帧，L_DES_B 最多；mountain 为 17 条），9 条自动质检 failed（全部 near_black）。确认是场景光照所致（连续离地证书通过、采集无中断或降速、UE 视口同样昏暗），按原样发布，写入 v2 `scene_registry.json` limitations。
+
+英文译文在捕获文件和索引的 `instruction`，中文原文在 `instruction_zh`。读取器验证索引、捕获与 source-plan 的一致性；分组使用中文原文，策略使用英文。仅用 1028 条训练指令拟合词表，实测 1,439 项、上限 256 tokens，三集合均无截断。val_seen/unseen 未知 token 占比约 0.507%/2.763%，不反向扩充词表。
 
 | 集合 | 观测 | 原始转移 | STOP 正样本（含末观测） | 有效动作 |
 |---|---:|---:|---:|---:|
-| train | 111397 | 110499 | 5390 | 106007 |
-| val_seen | 19348 | 19187 | 966 | 18382 |
-| val_unseen | 23150 | 22951 | 1196 | 21954 |
+| train | 127856 | 126828 | 6171 | 121685 |
+| val_seen | 22336 | 22152 | 1104 | 21232 |
+| val_unseen | 29984 | 29737 | 1484 | 28500 |
 
 prepare 不读取既有 test 的捕获与动作，只在发布索引身份检查中包含其 JSONL。test 不参与本轮选模与开发；新 desert 的留出地图进入 val_unseen 主评测。
 
@@ -61,27 +63,30 @@ A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/mo
 
 ## 5. 地形分组与评测边界
 
-四张 mountain 地图的捕获版本已与保存回执匹配，地形导出与连续 AGL 证书绑定。AGL = 当前位置 Z − XY 下最高有效地形面（不用屋顶替代），坡度来自该面梯度。低层 <30m，中层 30–80m，高层 >80m。非 mountain 的 AGL/坡度保留 NaN，不填零。
+地形类别为 mountain 与 desert（`PROTOCOL["terrain_categories"]`）。8 张地图（L_MTN_A–D、L_DES_A–D）的捕获版本都与保存回执匹配，地形导出与连续 AGL 证书绑定（两套 `terrain_model.py` 除地图前缀外逐字相同）。AGL = 当前位置 Z − XY 下最高有效地形面（不用屋顶替代），坡度来自该面梯度。低层 <30m，中层 30–80m，高层 >80m。非地形类别的 AGL/坡度保留 NaN，不填零。
 
-125/76 是指令需求分组（中文含"随沿途地形调整高度"），不等同于世界 Z 是否变化。
+随地形/对照是指令需求分组（中文含"随沿途地形调整高度"），不等同于世界 Z 是否变化。两类对照性质不同：train 中 mountain 对照 57 条全在平地定高（每步 |dz| 0.26cm、坡度 0.3°）；desert 对照 30 条在沙丘上定高（每步 |dz| 0、坡度 17.0°），且只有中/高层。随地形组每步 |dz| / 坡度：mountain 39.2cm / 18.8°，desert 36.9cm / 17.5°。
 
-| split | mountain 随地形 / 对照 | 低 / 中 / 高 AGL（随地形/对照） |
-|---|---:|---|
-| train | 73 / 57 | 31/34、26/20、16/3 |
-| val_seen | 15 / 8 | 8/4、3/4、4/0 |
-| val_unseen | 37 / 11 | 17/7、13/4、7/0 |
+| split | 类别 | 随地形 / 对照 | 低 / 中 / 高 AGL（随地形/对照） |
+|---|---|---:|---|
+| train | mountain | 73 / 57 | 31/34、26/20、16/3 |
+| | desert | 100 / 30 | 63/0、26/22、11/8 |
+| val_seen | mountain | 15 / 8 | 8/4、3/4、4/0 |
+| | desert | 17 / 6 | 14/0、2/3、1/3 |
+| val_unseen | mountain | 37 / 11 | 17/7、13/4、7/0 |
+| | desert（L_DES_C） | 37 / 11 | 24/0、9/8、4/3 |
 
-全量 125/76 不能当作独立评测规模。val_unseen 高 AGL 无对照，报告保留缺失，低/中层等权比较；禁止把训练路线混入独立报告或填造高层对照。
+val_unseen 合并为随地形 74 / 对照 22，低/中/高 41/7、22/12、11/3。高 AGL 对照只来自 desert，低层对照只来自 mountain；AGL 匹配 D 仍只对低/中层等权。禁止把训练路线混入独立报告或填造缺失的层。
 
-仅用过滤后的 train 拟合词表、动作均值/尺度和坡度分箱。动作指标先逐路线后平均。选模分数等权合并：逐分量尺度归一化的平移 RMS、|dyaw|≥1° 的归一化环形 yaw MAE、mountain 两 cohort 等权的归一化 dz MAE；尺度 std 下限 0.05/0.05/0.05m 和 1°。
+仅用 train 拟合词表、动作均值/尺度和坡度分箱。动作指标先逐路线后平均。选模分数等权合并：逐分量尺度归一化的平移 RMS、|dyaw|≥1° 的归一化环形 yaw MAE、地形类别（mountain + desert 合并）两 cohort 等权的归一化 dz MAE；尺度 std 下限 0.05/0.05/0.05m 和 1°。评测报告的 `terrain` 为合并结果，`terrain_by_category` 为按类别拆分。
 
 ## 6. 离线实验（11/10 决策）
 
 | 日期 | 交付 | 入口 |
 |---|---|---|
 | 10/21–22 | 英文输入、STOP、地形绑定、分组、过拟合、缓存；A/B 种子 42 试跑（v1，只看 val_seen） | `experiments/prepare.py`、`overfit.py`、`cache.py`、`train.py` |
-| 10/22–30 | desert 重建与采集，发布 `benchmark_split_v2` | 数据集侧 |
-| 10/31–11/2 | v2 上 prepare 与缓存 | `prepare.py`、`cache.py` |
+| 10/22–23 | desert 重建与采集，发布 `benchmark_split_v2`（已完成） | `sr3m/release_v2.py` |
+| 10/23– | v2 上 prepare（已完成）与缓存 | `prepare.py`、`cache.py` |
 | 11/2–11/7 | A/B × 三种子训练，冻结 checkpoint/阈值；C 暂不跑 | `train.py` → `selection.json` |
 | 11/7–11/9 | val_unseen 分组报告、线性探针、配对区间 | `evaluate.py`、`probe.py`、`summarize.py` |
 | 11/10 | 一页研究决策 | `decision/decision.md` |
@@ -106,11 +111,12 @@ A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/mo
 
 - 背景：train 中对照组 57 条路线全部是平地上定高飞行（每步 |dz| 0.26cm、地形坡度 0.3°），随地形组每步 |dz| 39cm、坡度 18.8°。因此对照组 dz 增益上限约 0.3cm，原来的交互统计 D 几乎等于随地形组增益，不能检验"地形越复杂越有用"；绝对增益随坡度增大也是 |dz| 变大带来的必然结果。判据改为相对量。
 - **门槛**：A、B 每个种子的综合分数和转弯 yaw 都须优于两种基线，且三种子平均的配对改善区间下界为正。
+- v2 补充：desert 对照组在坡面上定高（坡度 17°、|dz|=0），"不伤害"在 desert 上检验的是"有坡但不应改高度"时俯视是否诱发多余 dz，比 mountain 平地对照更严格。判据本身不变，H1/H2/不伤害均在 mountain + desert 合并路线上计算，按类别拆分只作描述。
 - **H1（主判据）**：val_unseen（mountain 与 desert 的留出地图）随地形组相对 dz 改善 `R = 1 − dzMAE(B)/dzMAE(A)`（逐路线 dz MAE 的路线平均之比）。三个种子 R 均 >0，且路线 bootstrap 95% CI 下界 >0。不设最小效应量。
-- **H2（支撑）**：坡度分箱为 train 随地形路线有效步的坡度三分位（实测 1.93° / 21.57°，三档每步 |dz| 约 8/15/94cm）。统计高坡档 R − 低坡档 R，三种子均 >0 且 CI 下界 >0 为通过。
+- **H2（支撑）**：坡度分箱为 train 随地形路线有效步的坡度三分位（v2 合并实测 4.25° / 18.57°，三档每步 |dz| 约 10/19/84cm；v1 仅 mountain 时为 1.93° / 21.57°）。统计高坡档 R − 低坡档 R，三种子均 >0 且 CI 下界 >0 为通过。
 - **不伤害**：对照组 B 相对 A 的 dz MAE 与平移误差增加量（种子平均）均 ≤ 1cm。
 - 结论：门槛未过 → 先处理动作学习；H1 过但伤害对照 → 先查融合；H1+H2 → 核心假设成立，继续主线；仅 H1 → 继续主线，主张限定为"地形跟随受益于俯视"；H1 未过且俯视探针不可读 → 先查深度表示；否则 → 转 benchmark。
-- 原始 D、AGL 匹配 D、相对改善与各层结果保留为描述性报告。C 未过关仅作诊断。线性探针失败不能写成"俯视图没有信息"。此结果只是单张留出 mountain 地图的首轮证据。
+- 原始 D、AGL 匹配 D、相对改善与各层结果保留为描述性报告。C 未过关仅作诊断。线性探针失败不能写成"俯视图没有信息"。此结果只是每个地形类别各一张留出地图（L_MTN_C、L_DES_C）的首轮证据。
 
 ## 7. 闭环与 desert
 
@@ -130,7 +136,7 @@ python -m experiments.closed_loop --prepared runs/terrain_v1/prepared \
 
 成功率用 SR20，另报路线进度、碰撞、超时和提前 STOP，标明返回型路线的解释边界。
 
-**Desert（10/30 前采集）**：沙丘生成方法由数据集侧自行确定（`sr3m/desert_terrain.py` 只是早期的四档起伏预览，不再是定稿方案）。要求：4 张图用不同沙丘场，每张图内都有平缓到陡峭的区域；每张图同时包含"随沿途地形调整高度"路线和在起伏上定高的路线（AGL 中/高层）；复用 mountain 的 AGL 分层、连续离地检查与采集流程。为接入 prepare，每张图需提供与 mountain 相同的地形产物：`scripts/terrain_model.py`、`evidence/persisted-<图ID>.json`、`evidence/continuous-agl-<图ID>.json`、`design/<图ID>.final.json`（含 `route_id`、`instruction_zh`、`height_layer`）。新数据发布为 `benchmark_split_v2`，不原地覆盖 v1；旧 desert 捕获保留不删。留出地图只进 val_unseen，不参与词表、统计、超参、checkpoint 或阈值选择。
+**Desert（10/23 已采集并发布 v2，以下为当时的要求）**：沙丘生成方法由数据集侧自行确定（`sr3m/desert_terrain.py` 只是早期的四档起伏预览，不再是定稿方案）。要求：4 张图用不同沙丘场，每张图内都有平缓到陡峭的区域；每张图同时包含"随沿途地形调整高度"路线和在起伏上定高的路线（AGL 中/高层）；复用 mountain 的 AGL 分层、连续离地检查与采集流程。为接入 prepare，每张图需提供与 mountain 相同的地形产物：`scripts/terrain_model.py`、`evidence/persisted-<图ID>.json`、`evidence/continuous-agl-<图ID>.json`、`design/<图ID>.final.json`（含 `route_id`、`instruction_zh`、`height_layer`）。新数据发布为 `benchmark_split_v2`，不原地覆盖 v1；旧 desert 捕获保留不删。留出地图只进 val_unseen，不参与词表、统计、超参、checkpoint 或阈值选择。
 
 ## 8. 代码来源
 

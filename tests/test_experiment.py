@@ -61,8 +61,10 @@ def test_action_metrics_ignore_stop_prediction_and_positive_tail_labels():
     other = evaluate(ds, pred, STATS, np.ones(ds.n), .5)
     assert other["selection_score"] == result["selection_score"]
     assert result["selection_score"] == pytest.approx(0.,abs=1e-12)
-    assert other["mountain"]["control/high"]["dz_mae_m"] is None
-    assert other["mountain"]["control/high"]["routes"] == 0
+    assert other["terrain"]["control/high"]["dz_mae_m"] is None
+    assert other["terrain"]["control/high"]["routes"] == 0
+    assert other["terrain_by_category"]["mountain"]["follow/all"]["routes"] == 2
+    assert other["terrain_by_category"]["desert"]["follow/all"]["routes"] == 0
 
 
 def test_selection_penalizes_straight_collapse_even_with_identical_translation():

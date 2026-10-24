@@ -33,7 +33,7 @@ from had.model import image_transform
 from had.tokenizer import Tokenizer
 
 SPLITS = ("train", "val_seen", "val_unseen", "test")
-EXPECTED = dict(zip(SPLITS, (1027, 184, 199, 196)))
+EXPECTED = dict(zip(SPLITS, (1028, 184, 247, 147)))  # raw benchmark_split_v2
 CATEGORIES = ("airfields", "integrated_base", "forests", "mountain", "prairie")
 
 
@@ -60,10 +60,11 @@ def reconstruct(position, yaw, actions):
 
 
 def collect_prepared(root, prepared):
-    """Check the five selected raw captures, without reopening all 1606 routes."""
+    """Check the five selected raw captures, without reopening every published route."""
     ds=PreparedSplit(prepared,"train")
-    require(split_hashes(root/INDEX_DIR)==ds.protocol["source_split"],"Published indices changed")
-    records={r["episode_id"]:r for r in map(json.loads,(root/"benchmark_split_v1/train.jsonl").read_text().splitlines())}
+    index=ds.protocol["protocol"]["index"]
+    require(split_hashes(root/index)==ds.protocol["source_split"],"Published indices changed")
+    records={r["episode_id"]:r for r in map(json.loads,(root/index/"train.jsonl").read_text().splitlines())}
     chosen=[];checked=0
     for category in CATEGORIES:
         candidates=[]
@@ -128,7 +129,7 @@ def collect(root):
             source_ids = [step.get("source_pose_index") for step in steps]
             require(all(a is None or b is None or b == a+1
                         for a, b in zip(source_ids, source_ids[1:])), "Nonadjacent capture indices")
-            if record["category"] != "desert": instructions[split].append(text)
+            instructions[split].append(text)
             language["with_han"] += bool(re.search(r"[\u3400-\u9fff]", text))
             language["with_ascii_letters"] += bool(re.search(r"[A-Za-z]", text))
             language["without_han"] += not bool(re.search(r"[\u3400-\u9fff]", text))

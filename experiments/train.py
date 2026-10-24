@@ -132,8 +132,8 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
         row = {"epoch": epoch, "loss": total/ds.n, "selection_score": score, "best_epoch": best_epoch,
                "seconds": time.monotonic()-tick, "improved": improved,
                "turn_yaw_mae_deg":result["overall"]["turn_yaw_mae_deg"],
-               "mountain_follow_dz_m":result["mountain"]["follow/all"]["dz_mae_m"],
-               "mountain_control_dz_m":result["mountain"]["control/all"]["dz_mae_m"],
+               "terrain_follow_dz_m":result["terrain"]["follow/all"]["dz_mae_m"],
+               "terrain_control_dz_m":result["terrain"]["control/all"]["dz_mae_m"],
                "baseline_scores":getattr(args,"baseline_scores",{})}
         with (out / "training.jsonl").open("a", encoding="utf8") as f: f.write(json.dumps(row)+"\n")
         print(f"{variant} seed{seed}: {json.dumps(row)}", flush=True)

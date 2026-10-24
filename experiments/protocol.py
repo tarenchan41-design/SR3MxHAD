@@ -12,7 +12,8 @@ import numpy as np
 PROJECT = Path(__file__).resolve().parents[1]
 
 PROTOCOL = {
-    "name": "sr3m_had_terrain_v1", "language": "en", "excluded_categories": ["desert"],
+    "name": "sr3m_had_terrain_v2", "index": "benchmark_split_v2", "language": "en",
+    "terrain_categories": ["mountain", "desert"],
     "action_contract": "capture_adjacent_yaw_fru_m_rad_v1",
     "stop_radius_m": 10., "success_radius_m": 20., "stop_positive": "terminal_contiguous_suffix",
     "stop_pos_weight": 1., "stop_loss_weight": .1,
@@ -23,9 +24,11 @@ PROTOCOL = {
     "precision": "float32_ieee_no_tf32",
     "optimizer": {"name": "AdamW", "lr": 1e-4, "weight_decay": 1e-4, "batch_size": 32,
                   "max_epochs": 40, "min_epochs": 10, "patience": 5, "gradient_clip": 5.},
-    "selection": "equal_normalized_route_macro_translation_turn_yaw_cohort_macro_mountain_dz",
+    "selection": "equal_normalized_route_macro_translation_turn_yaw_cohort_macro_terrain_dz",
 }
-EXPECTED = {"train": 898, "val_seen": 161, "val_unseen": 199, "test": 147}
+EXPECTED = {"train": 1028, "val_seen": 184, "val_unseen": 247, "test": 147}
+# Categories with terrain exports: AGL/slope labels, follow/control cohorts, H1/H2.
+TERRAIN = tuple(PROTOCOL["terrain_categories"])
 
 
 def machine_paths():
@@ -118,7 +121,7 @@ class PreparedSplit:
 
     def cohort_counts(self):
         return dict(Counter("follow" if r["terrain_following"] else "control"
-                            for r in self.routes if r["category"] == "mountain"))
+                            for r in self.routes if r["category"] in TERRAIN))
 
 
 def read_features(cache, split, prepared):
