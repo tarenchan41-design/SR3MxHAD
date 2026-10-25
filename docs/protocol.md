@@ -86,8 +86,8 @@ val_unseen 合并为随地形 74 / 对照 22，低/中/高 41/7、22/12、11/3�
 |---|---|---|
 | 10/21–22 | 英文输入、STOP、地形绑定、分组、过拟合、缓存；A/B 种子 42 试跑（v1，只看 val_seen） | `experiments/prepare.py`、`overfit.py`、`cache.py`、`train.py` |
 | 10/22–23 | desert 重建与采集，发布 `benchmark_split_v2`（已完成） | `sr3m/release_v2.py` |
-| 10/23– | v2 上 prepare（已完成）与缓存 | `prepare.py`、`cache.py` |
-| 11/2–11/7 | A/B × 三种子训练，冻结 checkpoint/阈值；C 暂不跑 | `train.py` → `selection.json` |
+| 10/23–24 | v2 上 prepare、缓存、十路线过拟合（已完成；过拟合 2500 步通过） | `prepare.py`、`cache.py`、`overfit.py` |
+| 10/25– | A/B × 三种子训练（本机 3070），冻结 checkpoint/阈值；C 暂不跑 | `train.py` → `selection.json` |
 | 11/7–11/9 | val_unseen 分组报告、线性探针、配对区间 | `evaluate.py`、`probe.py`、`summarize.py` |
 | 11/10 | 一页研究决策 | `decision/decision.md` |
 
