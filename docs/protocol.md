@@ -145,3 +145,12 @@ python -m experiments.closed_loop --prepared runs/terrain_v1/prepared \
 - `had/tokenizer.py`、`sr3m/data.py`、`sr3m/geometry.py`：来自 SR3M `vln_benchmark`（`unified/tokenizer.py`、`dataset.py`、`unified/data.py`、`unified/contract.py`），只删去未使用的部分。
 - 迁移后与迁移前逐位一致：A/B/C 初始化、前向输出、损失、val_seen 基线、prepare 输出（2026-10-21 校验）。
 - 旧中文单种子 front/concat/gate 的历史 test 误差 6.83/6.95/6.31 cm 包含旧 desert、协议不同，不能混入本轮结论。
+
+## 9. v3 开发（方向 A，2026-10-26 起）
+
+v2 的决策与诊断见 `runs/terrain_v2/decision/`：H1 小幅通过、H2 未过、对照伤害；随后 A2/A3 表明 dz 主要受表示限制，冻结的外观特征在未见地图上几乎读不出 dz，单目深度可以迁移（留一图探针约 10–12%，几何 oracle 53%）。v3 只增加两件事，其余与 v2 相同（简单拼接、无 AGL 输入、无图像增强、val_seen 选模）：
+
+- **深度输入**：`PROTOCOL["depth"]`。Depth Anything V2 Small 在 266×266 RGB 上的相对逆深度，平均到 16×16，每视角 256 维（`experiments/depth.py`）；按准备集 train 行逐维标准化。AD = A + 前视深度，BD = B + 前视/俯视深度：每视角深度经一个线性层加在该视角投影的 LayerNorm 之前，等价于对 [CNN 特征; 深度] 做线性投影。深度模块最后构建，与 A/B 共享模块的种子初始化不变。
+- **留一图开发集**：`experiments/fold.py` 从已有准备集派生，留出 L_MTN_x + L_DES_x，其 train + val_seen 路线作为该折的 `val_unseen`（仅开发，不是发布的 val_unseen）；词表、动作统计、坡度分箱与深度标准化在该折 train 上重拟合。`experiments/fold_report.py` 只读开发折。
+
+**第一步（单折最小对照）**：留出 L_MTN_B + L_DES_B，B 与 BD 各训练 seed 42，比较留出图上随地形/对照 dz、β 与 STOP。BD 明显更好才做完整 v3（AD/BD × 3 种子、留一图选模）；否则回到融合或训练目标。发布的 val_unseen 已在 v2 打开过，v3 若再报告需注明第二次查看。
