@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 from had.model import VARIANTS
-from experiments.protocol import PROTOCOL
+from experiments.protocol import DIAGNOSTIC_VARIANTS, PROTOCOL
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -25,4 +25,4 @@ def test_benchmark_and_method_do_not_depend_on_experiments():
 
 
 def test_model_views_match_registered_protocol():
-    assert {k: list(v) for k, v in VARIANTS.items()} == PROTOCOL["variants"]
+    assert {k: list(v) for k, v in VARIANTS.items()} == {**PROTOCOL["variants"], **DIAGNOSTIC_VARIANTS}

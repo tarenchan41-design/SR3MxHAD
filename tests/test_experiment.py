@@ -92,11 +92,11 @@ def test_stop_calibration_matches_exhaustive_threshold_search_and_rejects_unseen
     with pytest.raises(ValueError): calibrate_stop(ds,p)
 
 
-def test_common_seed_initialization_and_down_only_does_not_require_front():
+def test_common_seed_initialization_and_partial_views_do_not_require_missing_ones():
     torch.set_num_threads(2)
     tokenizer = Tokenizer.fit(["follow the terrain"], max_length=8)
     initial = None
-    for variant in ("A","B","C"):
+    for variant in ("A","B","C","N"):
         torch.manual_seed(42)
         model = TerrainHAD(variant,tokenizer,cached_only=True,small=True).eval()
         state = model.head_state()
@@ -105,8 +105,10 @@ def test_common_seed_initialization_and_down_only_does_not_require_front():
         features = {v:torch.randn(2,2048) for v in model.views}
         out = model(features,torch.tensor([[2,3,4,0,0,0,0,0]]*2),torch.zeros(2,5))
         assert out["action"].shape == (2,4)
-        if variant == "C":
+        if variant in ("C","N"):
             with pytest.raises(ValueError): model({"front":torch.zeros(2,2048)},torch.ones(2,8,dtype=torch.long),torch.zeros(2,5))
+        if variant == "N":
+            assert torch.equal(out["action"], model({},torch.tensor([[2,3,4,0,0,0,0,0]]*2),torch.zeros(2,5))["action"])
 
 
 def test_raw_image_and_cached_forward_match_and_projection_is_trainable():

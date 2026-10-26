@@ -151,3 +151,10 @@ python -m experiments.closed_loop --prepared runs/terrain_v1/prepared \
 v2 决策后曾尝试 v3：`PROTOCOL` = `sr3m_had_terrain_v3`，加入 Depth Anything V2 Small 相对逆深度（16×16，每视角 256 维）作为 AD/BD 变体的线性输入，并用留一图开发折（留出 L_MTN_x + L_DES_x 的 train + val_seen 路线）比较。单折最小对照（留出 L_MTN_B + L_DES_B，B vs BD 各 seed 42）中 BD 只多改善 2–3%（CI 跨 0），未做完整 v3；之后的度量深度检查也表明现成单目度量深度给不出 AGL。结论与数据见 `runs/terrain_v2/decision/v3_fold_B.md`、`m1_results.md`。
 
 代码已恢复到 v2（与 `d7ba299` 的代码逐字节相同，`PROTOCOL` = `sr3m_had_terrain_v2`）。v3 的实现（`experiments/depth.py`、`fold.py`、`fold_report.py` 与 AD/BD 变体）保留在提交 `a62ad92`，需要时从历史恢复。
+
+## 10. 决策后的诊断变体（2026-10-26）
+
+只作描述，不改变 10/25 的决策，也不进入 H1/H2 判据。定义放在 `PROTOCOL` 之外（`experiments/protocol.py` 的 `DIAGNOSTIC_VARIANTS`，与 `MAIN_VARIANTS` 同理），所以 v2 准备集、特征缓存和已有 checkpoint 保持有效。训练超参、选择规则与 A/B 完全相同，用 `python -m experiments.train --variants <V> --out runs/terrain_v2/models_<v>` 训练到单独目录。
+
+- **C**（仅俯视）：`PROTOCOL` 中原有定义，3 个种子已完成，见 `runs/terrain_v2/decision/c_results.md`。
+- **N**（无视觉输入）：只用指令和 5 维状态，两个视角都以零向量输入（与 A、C 对缺失视角的处理相同）。用来检验离线导航指标在不看图时能做到多好，以及 dz 的"不看图"下限。

@@ -32,6 +32,8 @@ TERRAIN = tuple(PROTOCOL["terrain_categories"])
 # Variants trained, reported and decided on. C keeps its PROTOCOL definition but is not run
 # (protocol.md §6); kept outside PROTOCOL so existing preparations and caches stay valid.
 MAIN_VARIANTS = ("A", "B")
+# Diagnostic variants defined outside PROTOCOL for the same reason. N: instruction + state only.
+DIAGNOSTIC_VARIANTS = {"N": []}
 
 
 def machine_paths():

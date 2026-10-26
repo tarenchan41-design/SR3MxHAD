@@ -45,6 +45,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/26 v3 单折（代码 `a62ad92`）：留出 L_MTN_B + L_DES_B，BD 相对 B 的随地形 dz 只改善 2–3%（CI 跨 0），β 0.13→0.20（真值约 0.6），**不跑完整 v3**，见 `runs/terrain_v2/decision/v3_fold_B.md`。我同意先做最后一个低成本检查：俯视**度量**深度探针（留一图，只探针不训练）；增益 < 20% 就收束方向 A，把"未见地形上的高度控制泛化难"写成 benchmark 发现。研究计划已写入 D1–D4（投稿目标、定位、真实数据离线评测、竞品基线）。
 - 10/26 **方向 A 已收束**（我确认）：现成单目度量深度（Depth Anything V2 Metric-Outdoor）在俯视/高空下给不出 AGL（估计恒为 2–10m，与真值不相关，尺度来自驾驶场景先验），见 `runs/terrain_v2/decision/m1_results.md`。结论：所测的冻结视觉特征（ResNet 外观、相对深度）在未见地图上只能拿到约 10% 的 dz 改善（几何 oracle 45–55%）。**更正**：oracle 拆分（`m1_oracle_split.py`）表明 AGL 对 dz 没有贡献，全部信息来自沿航向前方的地形起伏（带符号）；水平步长恒为约 2m，所以需要的是与尺度无关的沿航向坡度，不是绝对尺度，"单目做不到"不能写进论文。作为 benchmark 发现：所测冻结特征读不出沿航向坡度；更擅长 3D 结构的编码器（DINOv2/表面法向/VLM 视觉塔）未测试。剩余时间集中在核心问题"地形越复杂，俯视角帮助是否越大"。代码已按我的决定恢复到 v2（与 `d7ba299` 代码逐字节相同，`PROTOCOL` = `sr3m_had_terrain_v2`；v3 实现保留在 `a62ad92`）。我同意补跑 C（仅俯视）× 种子 42/43/44 作诊断，输出 `runs/terrain_v2/models_c/`。
 - 10/26 C 诊断完成（代码 `4c8dcc9`，见 `runs/terrain_v2/decision/c_results.md`，仅描述）：单独俯视不比单独前视好（val_unseen 随地形 A→C 0.0%），B 同时优于 A 和 C（C→B 4.7%，CI [1.6, 7.5]）——帮助来自双视角互补；desert 定高伤害与俯视输入有关（C +3.3cm、B +6.6cm）；平移/yaw/STOP 三个变体几乎相同，水平导航主要由指令和状态决定。
+- 10/26 一页结论已写（`runs/terrain_v2/decision/onepage.md`，待我审阅）。我同意加无视觉基线 N 与编码器探针。N 定义在 `PROTOCOL` 之外（`DIAGNOSTIC_VARIANTS`，改 `PROTOCOL` 会使 v2 准备集/缓存/checkpoint 全部失效，所以 `PROTOCOL` 未改），见 protocol.md §10；先跑种子 42，输出 `runs/terrain_v2/models_n/`。两者都等 3070 空出来再跑（编码器探针也可预缩图后放到云端 5090）。
 
 ## 6. 暂缓的探索路线
 

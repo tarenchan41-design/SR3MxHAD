@@ -18,7 +18,8 @@ from had.vendor.fusion import ConcatFusion
 from had.vendor.policy_head import MultiHeadPolicy
 
 DEFAULT_WEIGHTS = Path.home() / ".cache/torch/hub/checkpoints/resnet50-0676ba61.pth"
-VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",)}
+# N (no image input) is a diagnostic: missing views are zero-filled exactly as for A and C.
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": ()}
 
 
 @dataclass
@@ -63,7 +64,7 @@ class TerrainHAD(nn.Module):
         super().__init__()
         configure_precision()
         if variant not in VARIANTS:
-            raise ValueError("Variant must be A, B or C")
+            raise ValueError(f"Variant must be one of {sorted(VARIANTS)}")
         self.config = c = SMALL if small else HadDims()
         self.tokenizer = tokenizer
         vision = dict(backbone="resnet50", pretrained=False, output_dim=c.visual_dim, freeze_bn=True)
