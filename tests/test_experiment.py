@@ -109,30 +109,6 @@ def test_common_seed_initialization_and_down_only_does_not_require_front():
             with pytest.raises(ValueError): model({"front":torch.zeros(2,2048)},torch.ones(2,8,dtype=torch.long),torch.zeros(2,5))
 
 
-def test_depth_variant_shares_seeded_init_and_is_concat_projection():
-    torch.set_num_threads(2)
-    tokenizer = Tokenizer.fit(["hold altitude over the dunes"], max_length=8)
-    torch.manual_seed(42); base = TerrainHAD("B", tokenizer, cached_only=True, small=True).eval()
-    torch.manual_seed(42); depth = TerrainHAD("BD", tokenizer, cached_only=True, small=True).eval()
-    shared = base.head_state()
-    assert all(torch.equal(shared[k], depth.head_state()[k]) for k in shared)
-    assert set(depth.inputs) == {"front", "down", "front_depth", "down_depth"} and depth.views == base.views
-    x = {v: torch.randn(3, 2048) for v in ("front", "down")}; d = {f"{v}_depth": torch.randn(3, 256) for v in ("front", "down")}
-    tokens, state = torch.tensor([[2, 3, 4, 0, 0, 0, 0, 0]] * 3), torch.zeros(3, 5)
-    with torch.no_grad():
-        for layer in depth.depth_proj.values(): layer.weight.zero_(); layer.bias.zero_()
-        assert torch.allclose(depth({**x, **d}, tokens, state)["action"], base(x, tokens, state)["action"])
-        # Equals a single linear projection of [cnn; depth].
-        linear, proj = depth.front_encoder.proj[0], depth.depth_proj["front"]
-        proj.weight.normal_(); proj.bias.normal_()
-        joint = torch.nn.Linear(2048 + 256, linear.out_features)
-        joint.weight.copy_(torch.cat((linear.weight, proj.weight), 1)); joint.bias.copy_(linear.bias + proj.bias)
-        assert torch.allclose(depth.encode("front", {**x, **d}),
-                              depth.front_encoder.proj[2](depth.front_encoder.proj[1](joint(torch.cat((x["front"], d["front_depth"]), 1)))), atol=1e-5)
-    with pytest.raises(ValueError):
-        depth(x, tokens, state)
-
-
 def test_raw_image_and_cached_forward_match_and_projection_is_trainable():
     torch.set_num_threads(2)
     tokenizer = Tokenizer.fit(["fly right"],max_length=4)

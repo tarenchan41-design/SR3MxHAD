@@ -47,6 +47,4 @@ $PY -u -m experiments.run_all
 - `runs/terrain_v2/models/{A,B,C}_seed{42,43,44}/`：best/last、训练曲线、val_seen 选择
 - `runs/terrain_v2/val_unseen/`、`probe/`、`decision/decision.md`：冻结后的主评测、探针、决策报告
 
-v3 开发入口（见 protocol.md §9）：`experiments/depth.py`（单目深度特征，需要 `PYTHONPATH=~/sr3mxhad_runs/pylib` 提供 transformers，不装进共享 venv）、`experiments/fold.py`（留一图开发折）、`experiments/fold_report.py`（开发折比较）。
-
 其他入口：`python -m experiments.plot_actions`（五条专家轨迹的动作重建图，输出 `figures/`）、`python -m sr3m.desert_terrain --out runs/desert_preview`、`python -m experiments.closed_loop`（见 protocol.md §7）。

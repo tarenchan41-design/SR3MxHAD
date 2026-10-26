@@ -1,10 +1,5 @@
 """HAD dual-view policy. A/B/C share the same modules and initialization; only view masks differ.
 
-AD/BD add frozen monocular-depth features per view: a linear map of the 16x16 depth grid
-is added before the view projection's LayerNorm, i.e. exactly a linear projection of the
-concatenated [CNN feature; depth] vector. Depth modules are built last, so every module
-shared with A/B keeps its seeded initialization.
-
 Visual/text/fusion/policy modules are the pinned HAD implementation in had/vendor.
 Submodules are constructed in the same order as SR3M's former HadPolicy adapter
 (profile dual_relative_v1, concat fusion), so seeded initialization is unchanged.
@@ -23,9 +18,7 @@ from had.vendor.fusion import ConcatFusion
 from had.vendor.policy_head import MultiHeadPolicy
 
 DEFAULT_WEIGHTS = Path.home() / ".cache/torch/hub/checkpoints/resnet50-0676ba61.pth"
-VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "AD": ("front",), "BD": ("front", "down")}
-DEPTH_VARIANTS = ("AD", "BD")
-DEPTH_DIM = 256
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",)}
 
 
 @dataclass
@@ -70,7 +63,7 @@ class TerrainHAD(nn.Module):
         super().__init__()
         configure_precision()
         if variant not in VARIANTS:
-            raise ValueError(f"Variant must be one of {sorted(VARIANTS)}")
+            raise ValueError("Variant must be A, B or C")
         self.config = c = SMALL if small else HadDims()
         self.tokenizer = tokenizer
         vision = dict(backbone="resnet50", pretrained=False, output_dim=c.visual_dim, freeze_bn=True)
@@ -100,28 +93,14 @@ class TerrainHAD(nn.Module):
         for view in ("front", "down"):
             if view not in self.views:
                 getattr(self, f"{view}_encoder").proj.requires_grad_(False)
-        self.depth = variant in DEPTH_VARIANTS
-        if self.depth:
-            self.depth_proj = nn.ModuleDict({v: nn.Linear(DEPTH_DIM, c.visual_dim) for v in self.views})
-        self.inputs = self.views + (tuple(f"{v}_depth" for v in self.views) if self.depth else ())
-
-    def encode(self, view, features):
-        proj = getattr(self, f"{view}_encoder").proj
-        if not self.depth:
-            return proj(features[view])
-        linear, *rest = proj
-        x = linear(features[view]) + self.depth_proj[view](features[f"{view}_depth"])
-        for layer in rest:
-            x = layer(x)
-        return x
 
     def forward(self, features, tokens, state):
-        if set(features) != set(self.inputs):
-            raise ValueError(f"{self.variant} requires exactly {self.inputs}")
+        if set(features) != set(self.views):
+            raise ValueError(f"{self.variant} requires exactly {self.views}")
         if state.ndim != 2 or state.shape[1] != 5:
             raise ValueError("Policy state must contain only initial-yaw-relative position/sin/cos")
         zero = state.new_zeros((len(state), self.config.visual_dim))
-        encoded = {v: self.encode(v, features) for v in self.views}
+        encoded = {v: getattr(self, f"{v}_encoder").proj(x) for v, x in features.items()}
         text, _ = self.text_encoder(tokens)
         height = state.new_zeros((len(state), self.config.height_dim))
         fused, _ = self.fusion(encoded.get("front", zero), encoded.get("down", zero), text, height)
@@ -130,8 +109,6 @@ class TerrainHAD(nn.Module):
         return {"action": out["pred_action"], "stop_logit": out["stop_logit"].reshape(-1)}
 
     def from_images(self, images, tokens, state):
-        if self.depth:
-            raise NotImplementedError("Depth variants need precomputed depth features")
         if set(images) != set(self.views):
             raise ValueError("Unexpected image views")
         with torch.no_grad():

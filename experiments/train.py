@@ -1,4 +1,4 @@
-"""Train model variants x seeds using cached frozen features and val_seen only."""
+"""Train A/B/C x three seeds using cached frozen-CNN features and val_seen only."""
 import argparse
 import gc
 import json
@@ -9,7 +9,7 @@ import time
 import numpy as np
 import torch
 from experiments.protocol import MAIN_VARIANTS, PROTOCOL, PreparedSplit, code_version, read_features, read_json, write_json
-from had.model import VARIANTS, TerrainHAD
+from had.model import TerrainHAD
 from had.tokenizer import Tokenizer
 from experiments.metrics import calibrate_stop, evaluate
 
@@ -46,7 +46,7 @@ def predict(model, ds, features, tokens, device, batch_size=128):
     actions, probabilities = [], []
     for start in range(0, ds.n, batch_size):
         ids = np.arange(start, min(start+batch_size, ds.n))
-        out = model(*batch_inputs(ds, features, tokens, ids, model.inputs, device))
+        out = model(*batch_inputs(ds, features, tokens, ids, model.views, device))
         actions.append(out["action"].cpu().numpy())
         probabilities.append(out["stop_logit"].sigmoid().cpu().numpy())
     actions, probabilities = np.concatenate(actions), np.concatenate(probabilities)
@@ -108,7 +108,7 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
         for start in range(0, ds.n, opt_config["batch_size"]):
             ids = order[start:start+opt_config["batch_size"]]
             optimizer.zero_grad(set_to_none=True)
-            output = model(*batch_inputs(ds, features["train"], tokens["train"], ids, model.inputs, args.device))
+            output = model(*batch_inputs(ds, features["train"], tokens["train"], ids, model.views, args.device))
             loss = loss_for_batch(output, torch.from_numpy(ds.arrays["action"][ids]).to(args.device),
                                   torch.from_numpy(ds.arrays["action_valid"][ids]).to(args.device),
                                   torch.from_numpy(ds.arrays["stop"][ids]).to(args.device), statistics)
@@ -174,7 +174,7 @@ def train(args):
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prepared", required=True); p.add_argument("--cache", required=True); p.add_argument("--out", required=True)
-    p.add_argument("--variants", nargs="+", choices=tuple(VARIANTS), default=list(MAIN_VARIANTS))
+    p.add_argument("--variants", nargs="+", choices=("A", "B", "C"), default=list(MAIN_VARIANTS))
     p.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44]); p.add_argument("--device", default="cuda")
     train(p.parse_args())
 

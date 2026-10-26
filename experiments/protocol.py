@@ -12,19 +12,15 @@ import numpy as np
 PROJECT = Path(__file__).resolve().parents[1]
 
 PROTOCOL = {
-    "name": "sr3m_had_terrain_v3", "index": "benchmark_split_v2", "language": "en",
+    "name": "sr3m_had_terrain_v2", "index": "benchmark_split_v2", "language": "en",
     "terrain_categories": ["mountain", "desert"],
     "action_contract": "capture_adjacent_yaw_fru_m_rad_v1",
     "stop_radius_m": 10., "success_radius_m": 20., "stop_positive": "terminal_contiguous_suffix",
     "stop_pos_weight": 1., "stop_loss_weight": .1,
     "turn_threshold_rad": math.pi / 180, "std_floor": [.05, .05, .05, math.pi / 180],
-    "seeds": [42, 43, 44], "variants": {"A": ["front"], "B": ["front", "down"], "C": ["down"],
-                                         "AD": ["front"], "BD": ["front", "down"]},
+    "seeds": [42, 43, 44], "variants": {"A": ["front"], "B": ["front", "down"], "C": ["down"]},
     "image_size": 224, "backbone": "resnet50", "weights": "IMAGENET1K_V1:resnet50-0676ba61",
     "feature_dim": 2048, "dropout": .2,
-    # v3: AD/BD also see frozen monocular depth (experiments/depth.py), standardized with train rows.
-    "depth": {"model": "depth-anything/Depth-Anything-V2-Small-hf", "input_size": 266, "grid": 16,
-              "output": "relative_inverse_depth_mean_pooled", "standardization": "per_dimension_train_mean_std"},
     "precision": "float32_ieee_no_tf32",
     "optimizer": {"name": "AdamW", "lr": 1e-4, "weight_decay": 1e-4, "batch_size": 32,
                   "max_epochs": 40, "min_epochs": 10, "patience": 5, "gradient_clip": 5.},
@@ -115,9 +111,7 @@ class PreparedSplit:
         with np.load(self.directory / f"{split}.npz", allow_pickle=False) as z:
             self.arrays = {k: z[k] for k in z.files}
         self.n = len(self.arrays["state"])
-        # A development fold (experiments/fold.py) records its own route counts.
-        expected = self.protocol["routes"][split] if "fold" in self.protocol else EXPECTED[split]
-        if len(self.routes) != expected or self.n != sum(r["count"] for r in self.routes):
+        if len(self.routes) != EXPECTED[split] or self.n != sum(r["count"] for r in self.routes):
             raise ValueError("Incomplete prepared split")
         self.route_index = np.repeat(np.arange(len(self.routes)), [r["count"] for r in self.routes])
 
@@ -143,13 +137,5 @@ def read_features(cache, split, prepared):
     features = {v: np.load(path / f"{v}.npy", mmap_mode="r", allow_pickle=False) for v in ("front", "down")}
     if any(x.shape != (prepared.n, 2048) or x.dtype != np.float32 for x in features.values()):
         raise ValueError("Invalid cached feature array")
-    if "depth" in metadata:
-        if metadata["depth"]["spec"] != PROTOCOL["depth"]:
-            raise ValueError("Cached depth features use another depth specification")
-        grid = PROTOCOL["depth"]["grid"] ** 2
-        for v in ("front", "down"):
-            features[f"{v}_depth"] = np.load(path / f"{v}_depth.npy", mmap_mode="r", allow_pickle=False)
-            if features[f"{v}_depth"].shape != (prepared.n, grid) or features[f"{v}_depth"].dtype != np.float32:
-                raise ValueError("Invalid cached depth array")
     return features, metadata
 
