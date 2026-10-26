@@ -33,7 +33,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 闭环：16 条专家回放全部通过后才能跑模型；离线预览和单元测试不等于完成真实 UE 闭环。
 - 不另建 evidence/、verify_* 或哈希清单；Git HEAD + 工作区状态记录代码版本。
 
-## 5. 当前状态与优先事项（2026-10-25）
+## 5. 当前状态与优先事项（2026-10-26）
 
 - 已完成（v1 数据）：prepare、十路线过拟合、train/val_seen 缓存、A/B 种子 42 试跑（`runs/terrain_v1/pilot/`，只看 val_seen）。流水线按我的要求：**每个后续实验前先讨论**。
 - 判据已于开训前定稿为 H1（随地形组相对 dz 改善）+ H2（随坡度增大）+ 对照组不伤害；D 只作描述（见 protocol.md §6）。
@@ -42,6 +42,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/25：本机 3070 完成 A/B × 种子 42/43/44 正式训练（共约 8.3 小时，代码 `4c6272e` 干净工作区），6 个 run 均已在 val_seen 冻结 checkpoint 与 STOP 阈值，val_unseen 未读。输出 `runs/terrain_v2/models/`。`evaluate.py`/`summarize.py` 已改为只用 A/B（`MAIN_VARIANTS`，不改 `PROTOCOL`）。
 - 10/25 21:20 打开 val_unseen（经我确认）。预注册结论：门槛通过、H1 通过（4.7%，CI [0.9, 8.1]）、H2 未通过、对照组伤害（dz +3.7cm）→ "先检查融合方式"。伤害几乎全部来自 des_c_high_dogleg_004（断崖上定高，B 跟着地形爬升）；mountain H1 9.7%、伤害 0.8cm，desert H1≈0。诊断见 `runs/terrain_v2/decision/analysis_control_harm.md`。之后的任何修改只在 val_seen 上开发与选择。
 - 10/25 复查：该失败在 train/val_seen 上不复现（只在未见陡坡）；另发现 dz 泛化整体弱（val 上随地形 β 0.17–0.30，真值 0.55–0.70；val_seen dz 在第 2–5 epoch 最好后过拟合）。我选择**方向 A：先解决 dz 泛化**，偏离预注册规则的"先查融合"，理由与计划见 `runs/terrain_v2/decision/discussion_step2.md`。A2 已完成（`runs/terrain_v2/decision/a2_results.md`）：几何 oracle 可消掉 54% 的 dz 误差，冻结全局池化特征线性只读出 3–11%，策略 13–18%，**瓶颈主要在表示**。A3 探针已完成（`runs/terrain_v2/decision/a3_results.md`）：留一图开发集上，外观特征（G/R1）对未见地图 dz 几乎无效（−7%…+6%），Depth Anything V2 深度特征 R2 可迁移（≈10%，与 G 拼接 12%），离几何 oracle 53% 仍远；val_seen 排序与未见地图相反，不能用来选表示。10/26 我同意进入 v3 单折最小对照：`PROTOCOL` = `sr3m_had_terrain_v3`（新增 AD/BD 深度变体与深度规格，protocol.md §9），留出 L_MTN_B + L_DES_B，B vs BD 各 seed 42。v2 的 prepared/缓存/结果保留，但当前代码不再读 v2 准备集（复现 v2 用提交 `d7ba299`）。
+- 10/26 v3 单折（代码 `a62ad92`）：留出 L_MTN_B + L_DES_B，BD 相对 B 的随地形 dz 只改善 2–3%（CI 跨 0），β 0.13→0.20（真值约 0.6），**不跑完整 v3**，见 `runs/terrain_v2/decision/v3_fold_B.md`。我同意先做最后一个低成本检查：俯视**度量**深度探针（留一图，只探针不训练）；增益 < 20% 就收束方向 A，把"未见地形上的高度控制泛化难"写成 benchmark 发现。研究计划已写入 D1–D4（投稿目标、定位、真实数据离线评测、竞品基线）。
 
 ## 6. 暂缓的探索路线
 
