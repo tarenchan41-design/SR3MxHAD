@@ -8,7 +8,7 @@ import time
 
 import numpy as np
 import torch
-from experiments.protocol import PROTOCOL, PreparedSplit, code_version, read_features, read_json, write_json
+from experiments.protocol import MAIN_VARIANTS, PROTOCOL, PreparedSplit, code_version, read_features, read_json, write_json
 from had.model import TerrainHAD
 from had.tokenizer import Tokenizer
 from experiments.metrics import calibrate_stop, evaluate
@@ -174,7 +174,7 @@ def train(args):
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prepared", required=True); p.add_argument("--cache", required=True); p.add_argument("--out", required=True)
-    p.add_argument("--variants", nargs="+", choices=("A", "B", "C"), default=["A", "B", "C"])
+    p.add_argument("--variants", nargs="+", choices=("A", "B", "C"), default=list(MAIN_VARIANTS))
     p.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44]); p.add_argument("--device", default="cuda")
     train(p.parse_args())
 

@@ -8,7 +8,7 @@ from experiments.metrics import evaluate
 from experiments.summarize import positive,run
 
 
-def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
+def test_frozen_six_run_reporting_recovers_known_cohort_interaction(tmp_path):
     routes=[];offset=0
     terrain=[(True,"low")]*17+[(True,"medium")]*13+[(True,"high")]*7+[(False,"low")]*7+[(False,"medium")]*4
     specs=[("mountain",*x) for x in terrain]+[("desert",*x) for x in terrain]+[("airfields",False,None)]*151
@@ -27,7 +27,7 @@ def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
     results=tmp_path/"results";results.mkdir()
     for name,action in (("fixed_forward",[2.,0.,0.,0.]),("train_mean",[2.,0.,.08,0.])):
         write_json(results/f"{name}.json",evaluate(ds,np.broadcast_to(action,(ds.n,4)),stats,follow_slope_edges=[2.,5.]))
-    for variant in "ABC":
+    for variant in "AB":
         for seed in PROTOCOL["seeds"]:
             pred=np.nan_to_num(target.copy())
             for r in routes:
@@ -59,11 +59,11 @@ def test_frozen_nine_run_reporting_recovers_known_cohort_interaction(tmp_path):
     assert "NA" in text and "STOP" in text and "H1" in text and "仅作描述" in text and "高 AGL 无对照" in text
 
 
-def test_unfinished_nine_runs_cannot_open_held_out_data(tmp_path,monkeypatch):
+def test_unfinished_main_runs_cannot_open_held_out_data(tmp_path,monkeypatch):
     import experiments.evaluate as module
     def forbidden(*args,**kwargs): raise AssertionError("held-out data opened before selection")
     monkeypatch.setattr(module,"PreparedSplit",forbidden)
-    with pytest.raises(ValueError,match="All nine"):
+    with pytest.raises(ValueError,match="All 6 main runs"):
         module.evaluate_runs(Namespace(runs=str(tmp_path)))
 
 

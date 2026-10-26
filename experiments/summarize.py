@@ -8,7 +8,7 @@ are descriptive only: mountain control routes are level, so there D ~ follow gai
 import argparse
 from pathlib import Path
 import numpy as np
-from experiments.protocol import EXPECTED, PROTOCOL, TERRAIN, read_json, write_json
+from experiments.protocol import EXPECTED, MAIN_VARIANTS, PROTOCOL, TERRAIN, read_json, write_json
 from experiments.metrics import mean, selection_score
 
 NO_HARM_MARGIN_M = .01
@@ -114,7 +114,7 @@ def paired_interval(a, b, key, draws=2000):
 
 def run(args):
     root = Path(args.results)
-    reports = {v: [read_json(root / f"{v}_seed{s}.json") for s in PROTOCOL["seeds"]] for v in PROTOCOL["variants"]}
+    reports = {v: [read_json(root / f"{v}_seed{s}.json") for s in PROTOCOL["seeds"]] for v in MAIN_VARIANTS}
     if any(r["split"] != "val_unseen" for rr in reports.values() for r in rr):
         raise ValueError("The decision report requires frozen val_unseen results")
     reference=reports["A"][0]

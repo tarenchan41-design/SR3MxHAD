@@ -1,9 +1,9 @@
-"""Frozen-checkpoint reporting; val_unseen is opened only after all nine selections."""
+"""Frozen-checkpoint reporting; val_unseen is opened only after all main-variant selections."""
 import argparse
 from pathlib import Path
 import numpy as np
 import torch
-from experiments.protocol import PROTOCOL, PreparedSplit, read_features, read_json, write_json
+from experiments.protocol import MAIN_VARIANTS, PROTOCOL, PreparedSplit, read_features, read_json, write_json
 from had.model import TerrainHAD
 from had.tokenizer import Tokenizer
 from experiments.metrics import evaluate, follow_slope_edges
@@ -12,10 +12,10 @@ from experiments.train import predict, token_rows
 
 def evaluate_runs(args):
     torch.set_num_threads(4)
-    run_paths = [Path(args.runs) / f"{v}_seed{s}" for s in PROTOCOL["seeds"] for v in PROTOCOL["variants"]]
+    run_paths = [Path(args.runs) / f"{v}_seed{s}" for s in PROTOCOL["seeds"] for v in MAIN_VARIANTS]
     for run in run_paths:
         if not (run / "completion.json").exists() or read_json(run / "selection.json")["split"] != "val_seen":
-            raise ValueError("All nine runs must be completed and frozen on val_seen before reporting")
+            raise ValueError(f"All {len(run_paths)} main runs must be completed and frozen on val_seen before reporting")
     ds = PreparedSplit(args.prepared, args.split)
     features, _ = read_features(args.cache, args.split, ds)
     statistics = read_json(Path(args.prepared) / "statistics.json")

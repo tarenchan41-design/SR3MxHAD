@@ -29,6 +29,9 @@ PROTOCOL = {
 EXPECTED = {"train": 1028, "val_seen": 184, "val_unseen": 247, "test": 147}
 # Categories with terrain exports: AGL/slope labels, follow/control cohorts, H1/H2.
 TERRAIN = tuple(PROTOCOL["terrain_categories"])
+# Variants trained, reported and decided on. C keeps its PROTOCOL definition but is not run
+# (protocol.md §6); kept outside PROTOCOL so existing preparations and caches stay valid.
+MAIN_VARIANTS = ("A", "B")
 
 
 def machine_paths():

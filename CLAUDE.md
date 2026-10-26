@@ -39,8 +39,8 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 判据已于开训前定稿为 H1（随地形组相对 dz 改善）+ H2（随坡度增大）+ 对照组不伤害；D 只作描述（见 protocol.md §6）。
 - 10/22 决定：desert 提前重建并加入训练；决策节点移到 11/10。10/23：v2 已发布，代码已接入 v2（`PROTOCOL` = `sr3m_had_terrain_v2`，地形类别 mountain + desert 合并进 H1/H2，按类别拆分仅作描述）。v1 试跑结果不能与 v2 直接比较。
 - 10/24：v2 prepare、特征缓存（`~/sr3mxhad_runs/terrain_v2/features`，2.8GB，v1 原路线特征逐位一致）、十路线过拟合（2500 步通过，MSE 0.035 / STOP F1 0.975）完成。
-- 10/25 起：本机 3070 跑 A/B × 种子 42/43/44 正式训练，输出 `runs/terrain_v2/models/`，日志 `runs/terrain_v2/train.log`；预计 10–15 小时，可中断续跑。**训练期间不改工作区、不提交。**
-- 待办（打开 val_unseen 前）：`evaluate.py`/`summarize.py` 仍要求 A/B/C 九个 run，需改为只用 A/B 六个（C 暂不跑）。
+- 10/25：本机 3070 完成 A/B × 种子 42/43/44 正式训练（共约 8.3 小时，代码 `4c6272e` 干净工作区），6 个 run 均已在 val_seen 冻结 checkpoint 与 STOP 阈值，val_unseen 未读。输出 `runs/terrain_v2/models/`。`evaluate.py`/`summarize.py` 已改为只用 A/B（`MAIN_VARIANTS`，不改 `PROTOCOL`）。
+- 下一步：经我确认后打开 val_unseen（evaluate → probe → summarize），产出 `runs/terrain_v2/decision/decision.md`。
 
 ## 6. 暂缓的探索路线
 
