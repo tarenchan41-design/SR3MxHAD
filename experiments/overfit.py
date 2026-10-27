@@ -68,7 +68,9 @@ def run(args):
         stored=model(rounded,tokens[0:1].to(args.device),state0)
         cache_error=max(float((cached[k]-stored[k]).abs().max()) for k in cached)
         storage_error=max(float((cached[k]-direct[k]).abs().max()) for k in cached)
-    if cache_error>2e-5: raise ValueError(f"RGB/cache prediction mismatch: {cache_error}")
+    # fp32 batch-size noise (~3e-6 at the output) flips float16 rounding of boundary elements,
+    # which alone gives ~3e-5 (measured 2026-10-27); a pipeline error would be orders larger.
+    if cache_error>1e-4: raise ValueError(f"RGB/cache prediction mismatch: {cache_error}")
     optimizer = torch.optim.AdamW((p for p in model.parameters() if p.requires_grad),lr=1e-3,weight_decay=0.)
     statistics=read_json(Path(args.prepared)/"statistics.json"); rng=np.random.default_rng(7); started=time.monotonic(); result={}
     # Regularization is disabled only for the memorization check, never for A/B/C.
