@@ -217,3 +217,24 @@ def test_epoch_checkpoint_resume_matches_uninterrupted_training(tmp_path,monkeyp
     assert all(torch.equal(value,resumed["head"][key]) for key,value in first["head"].items())
     assert first["best_score"]==resumed["best_score"] and first["epoch"]==resumed["epoch"]==2
 
+
+
+def test_hold_copies_reuse_images_zero_only_dz_and_swap_only_the_condition():
+    from experiments.train import batch_inputs, hold_instruction, token_rows, with_hold_copies
+    ds = fixture_data(); ds.arrays["state"] = np.zeros((ds.n, 5), dtype="float32")
+    follow = "fly north, adjust the height according to the terrain along the way, then stop"
+    for r in ds.routes: r["instruction"] = follow if r["terrain_following"] else "fly north then stop"
+    tokenizer = Tokenizer.fit([follow, hold_instruction(follow)], max_length=24)
+    out, tokens = with_hold_copies(ds, token_rows(ds, tokenizer), tokenizer)
+    copies = [r for r in ds.routes if r["terrain_following"]]
+    assert out.n == ds.n + sum(r["count"] for r in copies) and ds.n == 12 and len(ds.routes) == 4
+    rows = np.r_[3:6, 9:12]
+    assert np.array_equal(out.feature_index[ds.n:], rows)
+    added = out.arrays["action"][ds.n:]; source = ds.arrays["action"][rows]; valid = ds.arrays["action_valid"][rows]
+    assert np.all(added[valid, 2] == 0) and np.array_equal(added[valid][:, [0, 1, 3]], source[valid][:, [0, 1, 3]])
+    assert np.array_equal(added[~valid], source[~valid], equal_nan=True) and np.array_equal(out.arrays["stop"][ds.n:], ds.arrays["stop"][rows])
+    assert out.routes[4]["instruction"] == "fly north, hold one constant flight altitude without climbing or descending with the terrain, then stop"
+    x = {v: np.arange(ds.n*FEATURE_DIM, dtype="float32").reshape(ds.n, FEATURE_DIM) for v in ("front", "down")}
+    features, text, _ = batch_inputs(out, x, tokens, np.array([3, 12]), ("front", "down"), "cpu")
+    assert torch.equal(features["down"][0], features["down"][1]) and not torch.equal(text[0], text[1])
+    with pytest.raises(ValueError): hold_instruction("fly north then stop")

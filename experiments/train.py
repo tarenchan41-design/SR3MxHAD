@@ -1,5 +1,6 @@
 """Train A/B/C x three seeds using cached frozen-CNN features and val_seen only."""
 import argparse
+import copy
 import gc
 import json
 from pathlib import Path
@@ -8,7 +9,7 @@ import time
 
 import numpy as np
 import torch
-from experiments.protocol import DIAGNOSTIC_VARIANTS, MAIN_VARIANTS, PROTOCOL, PreparedSplit, code_version, read_features, read_json, write_json
+from experiments.protocol import DIAGNOSTIC_VARIANTS, MAIN_VARIANTS, PROTOCOL, TERRAIN, PreparedSplit, code_version, read_features, read_json, write_json
 from had.model import TerrainHAD
 from had.tokenizer import Tokenizer
 from experiments.metrics import calibrate_stop, evaluate
@@ -18,8 +19,42 @@ def token_rows(ds, tokenizer):
     return torch.tensor([tokenizer.encode(r["instruction"])["input_ids"] for r in ds.routes], dtype=torch.long)
 
 
+# R1 (docs/protocol.md §12): the train-route altitude condition, FOLLOW phrase -> HOLD phrase.
+HOLD_PHRASES = {"adjusting the flight height to follow the terrain along the way":
+                    "holding one constant flight altitude without climbing or descending with the terrain",
+                "adjusting the height according to the terrain along the way":
+                    "holding one constant flight altitude without climbing or descending with the terrain",
+                "adjust the height according to the terrain along the way":
+                    "hold one constant flight altitude without climbing or descending with the terrain"}
+
+
+def hold_instruction(text):
+    found = [p for p in HOLD_PHRASES if p in text]
+    if len(found) != 1: raise ValueError(f"Expected one terrain-following phrase, found {found}")
+    return text.replace(found[0], HOLD_PHRASES[found[0]])
+
+
+def with_hold_copies(ds, tokens, tokenizer):
+    """Append a copy of every terrain-following route with the HOLD condition; its dz target is 0, the
+    exact hold action from any state. Images (via feature_index), horizontal actions and STOP are unchanged."""
+    picked = [r for r in ds.routes if r["category"] in TERRAIN and r["terrain_following"]]
+    rows = np.concatenate([np.arange(r["offset"], r["offset"]+r["count"]) for r in picked])
+    out = copy.copy(ds)
+    out.routes = ds.routes + [dict(r, instruction=hold_instruction(r["instruction"]), augmented="hold") for r in picked]
+    out.arrays = {k: np.concatenate([v, v[rows]]) for k, v in ds.arrays.items()}
+    action = out.arrays["action"]; valid = out.arrays["action_valid"]
+    action[ds.n:, 2] = np.where(valid[ds.n:], 0., action[ds.n:, 2])
+    out.feature_index = np.r_[np.arange(ds.n), rows]
+    out.route_index = np.r_[ds.route_index, len(ds.routes)+np.repeat(np.arange(len(picked)), [r["count"] for r in picked])]
+    out.n = len(out.feature_index)
+    extra = torch.tensor([tokenizer.encode(r["instruction"])["input_ids"] for r in out.routes[len(ds.routes):]], dtype=torch.long)
+    return out, torch.cat([tokens, extra])
+
+
 def batch_inputs(ds, features, tokens, indices, views, device):
-    values = {v: torch.from_numpy(np.asarray(features[v][indices], dtype=np.float32)).to(device) for v in views}
+    rows = getattr(ds, "feature_index", None)
+    rows = indices if rows is None else rows[indices]
+    values = {v: torch.from_numpy(np.asarray(features[v][rows], dtype=np.float32)).to(device) for v in views}
     return values, tokens[ds.route_index[indices]].to(device), torch.from_numpy(ds.arrays["state"][indices]).to(device)
 
 
@@ -63,13 +98,13 @@ def save_torch(path, value):
 
 def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics):
     out = Path(args.out) / f"{variant}_seed{seed}"; out.mkdir(parents=True, exist_ok=True)
-    identity = {"variant": variant, "seed": seed, "prepared": data["train"].protocol,
+    identity = {"variant": variant, "seed": seed, "augment": getattr(args, "augment", None), "prepared": data["train"].protocol,
                 "protocol": PROTOCOL, "statistics": statistics, "tokenizer": tokenizer.to_dict(), "code": args.code_version,
                 "environment": {"torch": str(torch.__version__), "cuda": torch.version.cuda,
                                 "gpu": torch.cuda.get_device_name() if args.device.startswith("cuda") else None}}
     if (out / "completion.json").exists():
         old = read_json(out / "run.json")
-        if any(old[k] != identity[k] for k in ("variant", "seed", "prepared", "protocol", "statistics", "tokenizer", "code")):
+        if any(old.get(k) != identity[k] for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code")):
             raise ValueError("Existing run uses a different experiment")
         print(f"already completed {out.name}", flush=True); return
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
@@ -81,7 +116,7 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
     if (out / "last.pt").exists():
         state = torch.load(out / "last.pt", map_location="cpu", weights_only=True)
         old = state["identity"]
-        if any(old[k] != identity[k] for k in ("variant", "seed", "prepared", "protocol", "statistics", "tokenizer", "code")):
+        if any(old.get(k) != identity[k] for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code")):
             raise ValueError("Resume identity mismatch")
         model.load_head_state(state["head"]); optimizer.load_state_dict(state["optimizer"])
         for item in optimizer.state.values():
@@ -92,7 +127,7 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
         if args.device.startswith("cuda"): torch.cuda.set_rng_state_all(state["cuda_rng"])
     elif (out / "run.json").exists():
         old = read_json(out / "run.json")
-        if any(old[k] != identity[k] for k in ("variant", "seed", "prepared", "protocol", "statistics", "tokenizer", "code")):
+        if any(old.get(k) != identity[k] for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code")):
             raise ValueError("Interrupted first epoch belongs to another run")
         if (out / "training.jsonl").exists() and (out / "training.jsonl").stat().st_size:
             raise ValueError("Completed epoch log exists but resume checkpoint is missing")
@@ -162,6 +197,8 @@ def train(args):
     tokenizer = Tokenizer.load(Path(args.prepared) / "tokenizer.json")
     tokens = {s: token_rows(ds, tokenizer) for s, ds in data.items()}
     statistics = read_json(Path(args.prepared) / "statistics.json")
+    if args.augment == "hold":
+        data["train"], tokens["train"] = with_hold_copies(data["train"], tokens["train"], tokenizer)
     baselines={name:evaluate(data["val_seen"],np.broadcast_to(action,(data["val_seen"].n,4)),statistics)
                for name,action in (("fixed_forward",[2.,0.,0.,0.]),("train_mean",statistics["mean"]))}
     write_json(Path(args.out)/"val_seen_baselines.json",baselines)
@@ -176,5 +213,6 @@ if __name__ == "__main__":
     p.add_argument("--prepared", required=True); p.add_argument("--cache", required=True); p.add_argument("--out", required=True)
     p.add_argument("--variants", nargs="+", choices=("A", "B", "C", *DIAGNOSTIC_VARIANTS), default=list(MAIN_VARIANTS))
     p.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44]); p.add_argument("--device", default="cuda")
+    p.add_argument("--augment", choices=("hold",), default=None, help="R1 counterfactual HOLD copies (docs/protocol.md §12)")
     train(p.parse_args())
 
