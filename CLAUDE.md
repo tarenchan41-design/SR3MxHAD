@@ -33,7 +33,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 闭环：16 条专家回放全部通过后才能跑模型；离线预览和单元测试不等于完成真实 UE 闭环。
 - 不另建 evidence/、verify_* 或哈希清单；Git HEAD + 工作区状态记录代码版本。
 
-## 5. 当前状态与优先事项（2026-10-26）
+## 5. 当前状态与优先事项（2026-10-27）
 
 - 已完成（v1 数据）：prepare、十路线过拟合、train/val_seen 缓存、A/B 种子 42 试跑（`runs/terrain_v1/pilot/`，只看 val_seen）。流水线按我的要求：**每个后续实验前先讨论**。
 - 判据已于开训前定稿为 H1（随地形组相对 dz 改善）+ H2（随坡度增大）+ 对照组不伤害；D 只作描述（见 protocol.md §6）。
@@ -48,7 +48,9 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/26 一页结论已写（`runs/terrain_v2/decision/onepage.md`，待我审阅）。我同意加无视觉基线 N 与编码器探针。N 定义在 `PROTOCOL` 之外（`DIAGNOSTIC_VARIANTS`，改 `PROTOCOL` 会使 v2 准备集/缓存/checkpoint 全部失效，所以 `PROTOCOL` 未改），见 protocol.md §10；先跑种子 42，输出 `runs/terrain_v2/models_n/`。两者都等 3070 空出来再跑（编码器探针也可预缩图后放到云端 5090）。
 - 10/26 N（无视觉，种子 42，代码 `0b1b0c5`）完成，见 `runs/terrain_v2/decision/n_results.md`：转弯/STOP/非地形路线水平误差与 A/B/C 持平，**离线水平导航不需要视觉**（teacher forcing 下指令 + 状态足够），视觉作用集中在 dz；随地形 dz 相对固定直飞 N 7.7%、A 12.5%、B 16.7%。论文需把 N 作为必报基线、水平导航靠闭环检验。
 - 10/26 E1 编码器探针完成（留一图、只用视觉特征，见 `runs/terrain_v2/decision/e1_results.md`）：ResNet 0.9%，SigLIP-so400m（VLM 视觉塔）7.4%，DINOv2-B 16.9%，DA-V2-S 编码器 16.4%，**DINOv2-B + 相对深度 20.4%**（勉强过事先定的 20%，22 组取最好、偏乐观）；DINOv2 仅俯视 13.9%，俯视价值被 ResNet 掩盖。下一步待我决定：是否用 DINOv2-B 重建缓存并重训 A/B/N（需改 `PROTOCOL`，约 12 小时）。一页结论已补 N 与 E1。
-- 10/27 我同意用 DINOv2 重做（protocol.md §11 预注册：主判据同 §6；次判据 S1 编码器是否放大俯视帮助、S2 俯视单独是否优于前视）。`PROTOCOL` = `sr3m_had_terrain_v2_dinov2`；只换冻结视觉特征（CLS + 2×2 patch 平均，3840 维，float16 缓存），其余同 v2。v2 ResNet 代码在 `4b0faf9`。待我确认判据后开跑：prepare → 过拟合 → 缓存 → A/B × 3 种子 → 打开 val_unseen → C × 3、N × 1。
+- 10/27 我同意用 DINOv2 重做（protocol.md §11 预注册：主判据同 §6；次判据 S1 编码器是否放大俯视帮助、S2 俯视单独是否优于前视）。`PROTOCOL` = `sr3m_had_terrain_v2_dinov2`；只换冻结视觉特征（CLS + 2×2 patch 平均，3840 维，float16 缓存），其余同 v2。v2 ResNet 代码在 `4b0faf9`。代码 `f295e31` 跑完：prepare、过拟合、缓存、A/B × 3 种子（10/27 09:58 冻结）。
+- 10/27 10:09 打开 val_unseen（第二次查看，经我确认），见 `runs/terrain_v2_dino/decision/dino_results.md`：门槛过，**H1 14.7%（CI [9.9, 19.2]）**，H2 未过（8.7%，CI [−3.0, 23.1]），对照组伤害 +2.4cm（仍主要是 des_c_high_dogleg_004，40.7cm）→ §6 决策表同 v2"先查融合"。**S1 通过**（Δ = R_dino − R_resnet = +10.0%，CI [5.3, 14.7]）→ 论文主结果用 DINOv2 版，ResNet 作对照。**S2 通过**（C 相对 A 11.5%，CI [5.7, 16.8]），"俯视单独优于前视"可写；S3：相对 N，A 6.5%、C 17.2%、B 20.3%。
+- 10/27 融合排查（`runs/terrain_v2_dino/decision/fusion_diag.md`，仅描述）：A/B 几乎不用指令里的"随地形/定高"条件（反事实互换只让 β 变化约 0.07）；未见陡坡定高的误爬升来自俯视。我同意 R1（protocol.md §12，`train.py --augment hold`，代码 `f9a20ce`）：随地形路线加定高指令副本、dz 目标 0；开发判据只用 val_seen（反事实定高 β ≤ 0.05 等三条）。B、A 种子 42，输出 `runs/terrain_v2_dino/r1/`。
 
 ## 6. 暂缓的探索路线
 
