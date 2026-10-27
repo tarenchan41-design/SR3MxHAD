@@ -8,7 +8,8 @@ data_root = "/mnt/f/WSL_ColdStorage/datasets/DatasetCaptureBatches/workbench"
 terrain_dir = "/mnt/e/UnrealProjects/mountain_base/military_mountains/Saved/VLNDataset/full-200"
 # UE desert terrain export (L_DES_A-D), same layout as terrain_dir
 desert_terrain_dir = "/mnt/e/UnrealProjects/desert/Saved/VLNDataset/des-200"
-# Pipeline outputs: prepared/, models/, val_unseen/, probe/, decision/ (runs/terrain_v1 holds the v1 pilot)
-out_dir = "runs/terrain_v2"
-# Frozen ResNet50 feature cache (~3 GB; keep on the Linux filesystem, not /mnt)
-cache_dir = "~/sr3mxhad_runs/terrain_v2/features"
+# Pipeline outputs: prepared/, models/, val_unseen/, probe/, decision/
+# (runs/terrain_v2 holds the ResNet v2 results, runs/terrain_v1 the v1 pilot)
+out_dir = "runs/terrain_v2_dino"
+# Frozen DINOv2 feature cache (~3 GB float16; keep on the Linux filesystem, not /mnt)
+cache_dir = "~/sr3mxhad_runs/terrain_v2_dino/features"

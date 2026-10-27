@@ -57,7 +57,7 @@ action_valid = transition_valid AND NOT stop_target
 
 A=front，B=front+down 简单拼接，C=down；同一 HAD 模块结构（`had/model.py`）与相同种子的初始参数，缺失视角分支置零。没有 AGL、坡度、终点或路线 ID 输入，没有门控和图像增强。
 
-固定 ImageNet ResNet50 V1、RGB、224×224 bilinear/antialias、ImageNet mean/std；冻结 CNN 和 BN，禁用 TF32。只缓存 CNN 的 2048 维 float32 输出；512 维投影、文本、融合、策略和 STOP 继续训练。
+当前（§11，2026-10-27 起）：冻结 DINOv2-B（`facebook/dinov2-base`，固定 revision），RGB 整帧 bicubic/antialias 缩放到 224×224（不裁剪）、ImageNet mean/std，fp32、禁用 TF32；只缓存最后一层 CLS + patch 2×2 网格平均（每视角 3840 维，float16 存储）；512 维投影（HAD 的 Linear + LayerNorm + ReLU）、文本、融合、策略和 STOP 继续训练。v2 主实验用的是 ImageNet ResNet50 V1 的 2048 维 float32 全局特征（224×224 bilinear），代码见提交 `4b0faf9`。
 
 缓存按 prepared 身份、骨干、预处理和完成行数绑定，读取未完成缓存会失败，中断后从已完成行续写。checkpoint 保存可训练模块、词表快照、数据/动作/STOP 协议、骨干标识、种子、训练统计、Git HEAD 与工作区状态。**注意：run 身份包含 git commit，训练进行中不要提交代码，否则已有 run 无法续跑。**
 
@@ -158,3 +158,38 @@ v2 决策后曾尝试 v3：`PROTOCOL` = `sr3m_had_terrain_v3`，加入 Depth Any
 
 - **C**（仅俯视）：`PROTOCOL` 中原有定义，3 个种子已完成，见 `runs/terrain_v2/decision/c_results.md`。
 - **N**（无视觉输入）：只用指令和 5 维状态，两个视角都以零向量输入（与 A、C 对缺失视角的处理相同）。用来检验离线导航指标在不看图时能做到多好，以及 dz 的"不看图"下限。
+
+## 11. DINOv2 重做（2026-10-27 开训前定稿）
+
+**动机**：E1 留一图探针（`runs/terrain_v2/decision/e1_results.md`，只用 train/val_seen 的地图，未读 val_unseen）显示，ResNet 全局特征在未见地图上几乎读不出 dz（0.9%），DINOv2-B 为 16.9%，其中只看俯视就有 13.9%。v2 中"俯视单独不比前视好"和 H2 未通过，可能是弱编码器造成的。本实验只更换冻结视觉特征，重新回答核心问题。
+
+**唯一改动**（`PROTOCOL` = `sr3m_had_terrain_v2_dinov2`）：
+
+- 骨干：DINOv2-B（`facebook/dinov2-base@f9e44c814b77203eaa57a6bdbbd535f21ede1415`），RGB 整帧 bicubic/antialias 缩放到 224×224，不裁剪（保留坡度依赖的画面布局），ImageNet mean/std，fp32、禁用 TF32，冻结。
+- 特征：最后一层输出（含最终 LayerNorm）的 CLS + patch token 2×2 网格平均，每视角 3840 维；缓存为 float16（相对舍入误差约 4e-4）。与 E1 探针的特征相关 0.99998（探针用 fp16 计算）。
+- 每视角投影仍为 HAD 的 Linear + LayerNorm + ReLU（3840→512）。骨干在所有可训练模块之后构建，同一种子下 A/B/C/N 的初始参数相同。
+- 不变：v2 划分与准备（词表、动作统计、坡度分箱只用 train；数据相同，结果与 v2 一致）、超参（AdamW lr 1e-4、wd 1e-4、batch 32、dropout 0.2、10–40 epochs、patience 5）、选模分数、STOP 校准、种子 42/43/44。不根据任何结果调参。
+- 不加相对深度：探针中 DINOv2 + 深度最好（20.4%），但 v3 单折显示深度在策略层只多 2–3%，而且会多一个模型依赖；本实验只检验"换编码器"。
+
+**运行顺序**：prepare → 十路线过拟合（§6 标准）→ 缓存 → A/B × 42/43/44（主实验）→ 6 个 run 全部在 val_seen 冻结后打开 val_unseen → C × 42/43/44 与 N × 42（描述性，在 A/B 冻结之后训练）。输出 `runs/terrain_v2_dino/`，缓存 `~/sr3mxhad_runs/terrain_v2_dino/features`。需要 `PYTHONPATH=~/sr3mxhad_runs/pylib` 提供 transformers（prepare、train、evaluate 不需要；cache、overfit、closed_loop 需要）。
+
+**val_unseen 的使用**：v2 时已经打开过一次（ResNet 模型）。DINOv2 的选择只依据 train/val_seen 地图上的留一图探针，没有使用 val_unseen。本实验是该划分的第二次查看，所有判据在开训前固定如下，事后不修改。
+
+**主判据**：与 §6 的定义、阈值和决策表完全相同（门槛、H1、H2、不伤害），比较 B_dino 与 A_dino。
+
+**次判据（预先登记）**：
+
+- **S1 更强编码器是否放大俯视的帮助**：Δ = R_dino − R_resnet，R = 1 − dzMAE(B)/dzMAE(A)（随地形组，三种子逐路线平均后求比）。R_resnet 取 v2 已冻结的 val_unseen 报告。两者用同一组路线 bootstrap 抽样（2000 次，按 §6 分层）。Δ > 0 且 95% CI 下界 > 0 → 通过。
+- **S2 俯视单独是否优于前视单独**：C_dino 相对 A_dino 的随地形相对 dz 改善，三个种子都 > 0 且 CI 下界 > 0 → 通过（v2 为 0.0%，CI [−3.6, 3.2]）。
+- **S3 相对不看图**：A_dino、B_dino、C_dino 相对 N_dino 的随地形 dz 改善，仅描述。
+- **绝对水平**：B_dino 与 B_resnet 的随地形 dz 和对照 dz，仅描述。
+
+**结论映射**：
+
+| 结果 | 结论 |
+|---|---|
+| H1 过 + S1 过 | 更强的编码器放大了俯视的帮助；论文主结果用 DINOv2 版，ResNet 作对照 |
+| H1 过、S1 不过 | 俯视的帮助存在，但不随编码器变强而增大；两版都报告 |
+| H1 不过 | 更强编码器下俯视的帮助未复现；主结果仍以 v2 为准，并讨论差异 |
+
+H2 与不伤害按 §6 决策表解读；S2 通过时，"俯视单独优于前视"可以写进论文，否则维持 v2 的"帮助来自双视角互补"。

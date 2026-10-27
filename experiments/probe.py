@@ -2,7 +2,7 @@
 import argparse
 from pathlib import Path
 import numpy as np
-from experiments.protocol import TERRAIN, PreparedSplit, read_features, write_json
+from experiments.protocol import PROTOCOL, TERRAIN, PreparedSplit, read_features, write_json
 
 ALPHAS = [1e-4, 1e-3, 1e-2, .1, 1., 10., 100.]
 
@@ -59,7 +59,7 @@ def run(args):
         candidates.append((alpha, beta, error))
     selected = [min(candidates, key=lambda c: (c[2][j], -c[0])) for j in range(2)]
     beta = np.column_stack([selected[j][1][:, j] for j in range(2)])
-    report = {"prepared": datasets["train"].protocol, "input": "frozen_down_cnn_2048_only", "fit_split": "train", "selection_split": "val_seen",
+    report = {"prepared": datasets["train"].protocol, "input": f"frozen_down_{PROTOCOL['backbone']}_{PROTOCOL['feature_dim']}_only", "fit_split": "train", "selection_split": "val_seen",
               "weighting": "equal routes, then equal observations within route", "alpha_grid": ALPHAS,
               "selected_alpha": {name: selected[j][0] for j, name in enumerate(("agl_m", "slope_deg"))},
               "interpretation": "Failure indicates poor linear readability, not absence of information", "splits": {}}

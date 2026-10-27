@@ -21,14 +21,14 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 仿真：UE 5.8.4 + Cosys-AirSim 3.5.0（插件需从源码构建），尚未完成真实闭环。
 - 数据：当前发布划分 `<data_root>/benchmark_split_v2`（v1 只读保留）；地形导出见 `terrain_dir`（mountain）和 `desert_terrain_dir`（desert）；位置在 `configs/paths.toml`（不进 Git，样例 `paths.example.toml`）。v2 由 `python -m sr3m.release_v2` 生成。
 - Python：`/home/qlj/h3c_pro/HAD-UAV-VLN/.venv`（3.12）。命令在仓库根目录用 `python -m experiments.<stage>` 运行，测试 `python -m pytest -q`。
-- 实验产物：`runs/terrain_v2/`（不进 Git）；决策报告 `runs/terrain_v2/decision/decision.md`。`runs/terrain_v1/` 是 v1 试跑，只作参考。
+- 实验产物（不进 Git）：当前 DINOv2 重做在 `runs/terrain_v2_dino/`（缓存 `~/sr3mxhad_runs/terrain_v2_dino/features`）；v2 ResNet 结果与全部诊断在 `runs/terrain_v2/`，决策报告 `runs/terrain_v2/decision/decision.md`。`runs/terrain_v1/` 是 v1 试跑，只作参考。cache/overfit/closed_loop 需要 `PYTHONPATH=~/sr3mxhad_runs/pylib`（transformers 不装进共享 venv）。
 - 代码结构见 README；`sr3m/` 不得 import `had`/`experiments`，`had/` 不得 import `experiments`（有测试守护）。`had/vendor/` 是 HAD@f01440a 逐字节副本，不改。
 
 ## 4. 实验纪律（违反会污染结论）
 
 - 原始 `benchmark_split_v1`/`v2`、捕获数据、旧 checkpoint 只读；不得重抽划分或移动关联路线。v2（10/23 发布）= v1 去掉旧 desert（其余行逐字节不变）+ 新 desert 201 条：L_DES_A/B/D 进 train/val_seen，**L_DES_C 整图进 val_unseen**。新 desert 背光面很暗，已写入 v2 limitations，未剔除。
 - 只用 v2 train 拟合词表、动作统计和坡度分箱。val_seen 选 checkpoint、STOP 阈值和探针正则；全部正式训练冻结后才打开 val_unseen。既有 test 不进入当前开发。
-- 主实验：英文指令，A/B × seeds 42/43/44（C 暂不跑），简单拼接，不含门控、AGL 输入或图像增强。
+- 主实验：英文指令，A/B × seeds 42/43/44，简单拼接，不含门控、AGL 输入或图像增强。10/27 起视觉骨干为冻结 DINOv2-B（protocol.md §11，判据已预注册）；C、N 只作诊断。
 - 不改 `experiments/protocol.py` 的 `PROTOCOL`，除非我同意：它绑定 prepared 数据与特征缓存。run 身份绑定 git commit，**训练进行中不要提交代码**。
 - 闭环：16 条专家回放全部通过后才能跑模型；离线预览和单元测试不等于完成真实 UE 闭环。
 - 不另建 evidence/、verify_* 或哈希清单；Git HEAD + 工作区状态记录代码版本。
@@ -48,6 +48,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/26 一页结论已写（`runs/terrain_v2/decision/onepage.md`，待我审阅）。我同意加无视觉基线 N 与编码器探针。N 定义在 `PROTOCOL` 之外（`DIAGNOSTIC_VARIANTS`，改 `PROTOCOL` 会使 v2 准备集/缓存/checkpoint 全部失效，所以 `PROTOCOL` 未改），见 protocol.md §10；先跑种子 42，输出 `runs/terrain_v2/models_n/`。两者都等 3070 空出来再跑（编码器探针也可预缩图后放到云端 5090）。
 - 10/26 N（无视觉，种子 42，代码 `0b1b0c5`）完成，见 `runs/terrain_v2/decision/n_results.md`：转弯/STOP/非地形路线水平误差与 A/B/C 持平，**离线水平导航不需要视觉**（teacher forcing 下指令 + 状态足够），视觉作用集中在 dz；随地形 dz 相对固定直飞 N 7.7%、A 12.5%、B 16.7%。论文需把 N 作为必报基线、水平导航靠闭环检验。
 - 10/26 E1 编码器探针完成（留一图、只用视觉特征，见 `runs/terrain_v2/decision/e1_results.md`）：ResNet 0.9%，SigLIP-so400m（VLM 视觉塔）7.4%，DINOv2-B 16.9%，DA-V2-S 编码器 16.4%，**DINOv2-B + 相对深度 20.4%**（勉强过事先定的 20%，22 组取最好、偏乐观）；DINOv2 仅俯视 13.9%，俯视价值被 ResNet 掩盖。下一步待我决定：是否用 DINOv2-B 重建缓存并重训 A/B/N（需改 `PROTOCOL`，约 12 小时）。一页结论已补 N 与 E1。
+- 10/27 我同意用 DINOv2 重做（protocol.md §11 预注册：主判据同 §6；次判据 S1 编码器是否放大俯视帮助、S2 俯视单独是否优于前视）。`PROTOCOL` = `sr3m_had_terrain_v2_dinov2`；只换冻结视觉特征（CLS + 2×2 patch 平均，3840 维，float16 缓存），其余同 v2。v2 ResNet 代码在 `4b0faf9`。待我确认判据后开跑：prepare → 过拟合 → 缓存 → A/B × 3 种子 → 打开 val_unseen → C × 3、N × 1。
 
 ## 6. 暂缓的探索路线
 

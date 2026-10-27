@@ -19,7 +19,7 @@ def token_rows(ds, tokenizer):
 
 
 def batch_inputs(ds, features, tokens, indices, views, device):
-    values = {v: torch.from_numpy(np.array(features[v][indices], copy=True)).to(device) for v in views}
+    values = {v: torch.from_numpy(np.asarray(features[v][indices], dtype=np.float32)).to(device) for v in views}
     return values, tokens[ds.route_index[indices]].to(device), torch.from_numpy(ds.arrays["state"][indices]).to(device)
 
 

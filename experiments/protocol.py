@@ -12,15 +12,16 @@ import numpy as np
 PROJECT = Path(__file__).resolve().parents[1]
 
 PROTOCOL = {
-    "name": "sr3m_had_terrain_v2", "index": "benchmark_split_v2", "language": "en",
+    "name": "sr3m_had_terrain_v2_dinov2", "index": "benchmark_split_v2", "language": "en",
     "terrain_categories": ["mountain", "desert"],
     "action_contract": "capture_adjacent_yaw_fru_m_rad_v1",
     "stop_radius_m": 10., "success_radius_m": 20., "stop_positive": "terminal_contiguous_suffix",
     "stop_pos_weight": 1., "stop_loss_weight": .1,
     "turn_threshold_rad": math.pi / 180, "std_floor": [.05, .05, .05, math.pi / 180],
     "seeds": [42, 43, 44], "variants": {"A": ["front"], "B": ["front", "down"], "C": ["down"]},
-    "image_size": 224, "backbone": "resnet50", "weights": "IMAGENET1K_V1:resnet50-0676ba61",
-    "feature_dim": 2048, "dropout": .2,
+    "image_size": 224, "image_resize": "bicubic_antialias_whole_frame", "backbone": "dinov2-base",
+    "weights": "facebook/dinov2-base@f9e44c814b77203eaa57a6bdbbd535f21ede1415",
+    "feature": "last_layer_cls_plus_2x2_patch_mean", "feature_dim": 3840, "feature_dtype": "float16", "dropout": .2,
     "precision": "float32_ieee_no_tf32",
     "optimizer": {"name": "AdamW", "lr": 1e-4, "weight_decay": 1e-4, "batch_size": 32,
                   "max_epochs": 40, "min_epochs": 10, "patience": 5, "gradient_clip": 5.},
@@ -137,7 +138,7 @@ def read_features(cache, split, prepared):
     if metadata["backbone"] != PROTOCOL["weights"] or metadata["image_size"] != PROTOCOL["image_size"]:
         raise ValueError("Feature cache backbone/preprocessing mismatch")
     features = {v: np.load(path / f"{v}.npy", mmap_mode="r", allow_pickle=False) for v in ("front", "down")}
-    if any(x.shape != (prepared.n, 2048) or x.dtype != np.float32 for x in features.values()):
+    if any(x.shape != (prepared.n, PROTOCOL["feature_dim"]) or x.dtype != np.dtype(PROTOCOL["feature_dtype"]) for x in features.values()):
         raise ValueError("Invalid cached feature array")
     return features, metadata
 

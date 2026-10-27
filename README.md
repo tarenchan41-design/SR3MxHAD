@@ -29,22 +29,24 @@ tests/         单元测试，含包边界测试
 
 ## 运行
 
-依赖：Python ≥ 3.11、PyTorch/torchvision、NumPy、Pillow、Matplotlib、pytest。本机环境是 `/home/qlj/h3c_pro/HAD-UAV-VLN/.venv`；ResNet50 权重默认读 `~/.cache/torch/hub/checkpoints/resnet50-0676ba61.pth`。所有命令在仓库根目录执行。
+依赖：Python ≥ 3.11、PyTorch/torchvision、NumPy、Pillow、Matplotlib、pytest。本机环境是 `/home/qlj/h3c_pro/HAD-UAV-VLN/.venv`。视觉骨干是 DINOv2-B（protocol.md §11），权重从 HF 缓存按固定 revision 读取；它需要的 `transformers` 不装进共享 venv，放在 `~/sr3mxhad_runs/pylib`，跑 cache/overfit/closed_loop（以及 run_all）时设 `PYTHONPATH=~/sr3mxhad_runs/pylib`。所有命令在仓库根目录执行。
 
 ```bash
 cp configs/paths.example.toml configs/paths.toml   # 首次，按本机修改
 export PY=/home/qlj/h3c_pro/HAD-UAV-VLN/.venv/bin/python
 $PY -m pytest -q
-$PY -u -m experiments.run_all
+PYTHONPATH=~/sr3mxhad_runs/pylib $PY -u -m experiments.run_all
 ```
 
-流水线可中断续跑：缓存从已完成行续读，训练从最后完整 epoch 恢复；状态见 `runs/terrain_v2/pipeline.json` 与各阶段 `*.log`。训练进行中不要提交代码（run 身份绑定 git commit）。
+流水线可中断续跑：缓存从已完成行续读，训练从最后完整 epoch 恢复；状态见 `<out_dir>/pipeline.json` 与各阶段 `*.log`。训练进行中不要提交代码（run 身份绑定 git commit）。
 
 产物（均不进 Git）：
 
-- `runs/terrain_v2/prepared/`：词表、训练统计、地形标签、16 条闭环路线、val_seen 基线
-- `cache_dir`（见 paths.toml）：front/down 2048 维 float32 特征
-- `runs/terrain_v2/models/{A,B,C}_seed{42,43,44}/`：best/last、训练曲线、val_seen 选择
-- `runs/terrain_v2/val_unseen/`、`probe/`、`decision/decision.md`：冻结后的主评测、探针、决策报告
+产物都在 paths.toml 的 `out_dir`（当前 `runs/terrain_v2_dino`；v2 的 ResNet 结果在 `runs/terrain_v2`，复现用提交 `4b0faf9`）：
+
+- `prepared/`：词表、训练统计、地形标签、16 条闭环路线、val_seen 基线
+- `cache_dir`（见 paths.toml）：front/down 3840 维 float16 DINOv2 特征
+- `models/{A,B}_seed{42,43,44}/`：best/last、训练曲线、val_seen 选择（C、N 作诊断，单独输出目录）
+- `val_unseen/`、`probe/`、`decision/decision.md`：冻结后的主评测、探针、决策报告
 
 其他入口：`python -m experiments.plot_actions`（五条专家轨迹的动作重建图，输出 `figures/`）、`python -m sr3m.desert_terrain --out runs/desert_preview`、`python -m experiments.closed_loop`（见 protocol.md §7）。

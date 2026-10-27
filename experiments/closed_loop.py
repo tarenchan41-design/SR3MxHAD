@@ -11,7 +11,7 @@ import torch
 from sr3m.geometry import adjacent_action, local_state, ned_to_ue_world_m, ue_world_m_to_ned, wrap
 from sr3m.sim import EXECUTOR, Executor, camera_images, state
 from experiments.protocol import PreparedSplit, read_json, write_json
-from had.model import DEFAULT_WEIGHTS, TerrainHAD, image_transform
+from had.model import TerrainHAD, image_transform
 from had.tokenizer import Tokenizer
 
 
@@ -44,7 +44,7 @@ def run(args):
         if not selection["stop"]["ready"]: raise RuntimeError("STOP calibration did not pass")
         threshold = selection["stop"]["threshold"]
         tokenizer = Tokenizer.from_dict(identity["tokenizer"])
-        model = TerrainHAD(identity["variant"], tokenizer, args.weights).to(args.device).eval()
+        model = TerrainHAD(identity["variant"], tokenizer).to(args.device).eval()
         model.load_head_state(checkpoint["head"])
     executor = Executor(client, api); initial_p, initial_yaw = p.copy(), yaw
     history = []; failure = None; stopped = False; progress=0
@@ -98,6 +98,6 @@ if __name__ == "__main__":
     p.add_argument("--prepared", required=True); p.add_argument("--episode", required=True); p.add_argument("--map-package",required=True)
     p.add_argument("--gate", required=True); p.add_argument("--out", required=True)
     p.add_argument("--host", default="127.0.0.1"); p.add_argument("--origin-ue-m", nargs=3, type=float, required=True)
-    p.add_argument("--checkpoint"); p.add_argument("--weights", default=str(DEFAULT_WEIGHTS)); p.add_argument("--device", default="cuda")
+    p.add_argument("--checkpoint"); p.add_argument("--device", default="cuda")
     run(p.parse_args())
 

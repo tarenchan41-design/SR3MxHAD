@@ -1,23 +1,24 @@
 """HAD dual-view policy. A/B/C share the same modules and initialization; only view masks differ.
 
-Visual/text/fusion/policy modules are the pinned HAD implementation in had/vendor.
-Submodules are constructed in the same order as SR3M's former HadPolicy adapter
-(profile dual_relative_v1, concat fusion), so seeded initialization is unchanged.
+Text/fusion/policy modules are the pinned HAD implementation in had/vendor. The visual
+backbone is a frozen DINOv2-B (docs/protocol.md §11) shared by both views; each view keeps
+HAD's trainable projection (Linear + LayerNorm + ReLU), now from the 3840-d DINOv2 feature.
+The backbone is built after every trainable module, so seeded head initialization does not
+depend on whether it is loaded (cached features) or not (raw images).
 """
 from dataclasses import dataclass, field
-from functools import lru_cache
-import hashlib
-from pathlib import Path
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
-from had.vendor.encoders import FrontEncoder, DownEncoder, TextEncoder
+from had.vendor.encoders import TextEncoder
 from had.vendor.fusion import ConcatFusion
 from had.vendor.policy_head import MultiHeadPolicy
 
-DEFAULT_WEIGHTS = Path.home() / ".cache/torch/hub/checkpoints/resnet50-0676ba61.pth"
+DINO = {"model": "facebook/dinov2-base", "revision": "f9e44c814b77203eaa57a6bdbbd535f21ede1415", "width": 768}
+FEATURE_DIM = 5 * DINO["width"]   # CLS + 2x2 average of the last-layer patch tokens
 # N (no image input) is a diagnostic: missing views are zero-filled exactly as for A and C.
 VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": ()}
 
@@ -44,34 +45,55 @@ def configure_precision():
     torch.backends.cuda.matmul.allow_tf32 = False
 
 
-@lru_cache(maxsize=4)
-def validate_weights(path):
-    # Bind external pretrained weights to torchvision's published download hash.
-    h = hashlib.sha256()
-    with Path(path).open("rb") as f:
-        for block in iter(lambda: f.read(2**20), b""): h.update(block)
-    if not h.hexdigest().startswith("0676ba61"):
-        raise ValueError("Expected torchvision ResNet50 IMAGENET1K_V1 weights")
-
-
 def image_transform():
-    return transforms.Compose([transforms.Resize((224, 224), interpolation=InterpolationMode.BILINEAR, antialias=True),
+    # Whole frame resized (no crop) so the image layout the slope depends on is kept.
+    return transforms.Compose([transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC, antialias=True),
                                transforms.ToTensor(), transforms.Normalize([.485, .456, .406], [.229, .224, .225])])
 
 
+def pooled_tokens(hidden):
+    """(b, 1 + h*w, d) last-layer tokens -> (b, 5d): CLS, then the 2x2 average of the patch grid (row-major)."""
+    patches = hidden[:, 1:]; side = int(round(patches.shape[1] ** .5))
+    if side * side != patches.shape[1]:
+        raise ValueError("Patch tokens do not form a square grid")
+    grid = F.adaptive_avg_pool2d(patches.transpose(1, 2).reshape(len(hidden), -1, side, side), 2)
+    return torch.cat([hidden[:, 0], grid.flatten(2).transpose(1, 2).flatten(1)], 1)
+
+
+class DinoFeatures(nn.Module):
+    """Frozen DINOv2-B; `config` builds a randomly initialized model instead (tests only)."""
+    def __init__(self, config=None):
+        super().__init__()
+        from transformers import Dinov2Model   # kept outside the shared venv: PYTHONPATH=~/sr3mxhad_runs/pylib
+        self.net = Dinov2Model(config) if config is not None else \
+            Dinov2Model.from_pretrained(DINO["model"], revision=DINO["revision"], local_files_only=True)
+        self.net.requires_grad_(False).eval()
+
+    def train(self, mode=True):
+        super().train(mode); self.net.eval()
+        return self
+
+    def forward(self, images):
+        return pooled_tokens(self.net(pixel_values=images).last_hidden_state)
+
+
+class ViewProjection(nn.Module):
+    """HAD VisualEncoder.proj with the DINOv2 feature as input."""
+    def __init__(self, output_dim):
+        super().__init__()
+        self.proj = nn.Sequential(nn.Linear(FEATURE_DIM, output_dim), nn.LayerNorm(output_dim), nn.ReLU(inplace=True))
+
+
 class TerrainHAD(nn.Module):
-    def __init__(self, variant, tokenizer, weights=DEFAULT_WEIGHTS, *, cached_only=False, small=False):
+    def __init__(self, variant, tokenizer, *, cached_only=False, small=False, backbone=None):
         super().__init__()
         configure_precision()
         if variant not in VARIANTS:
             raise ValueError(f"Variant must be one of {sorted(VARIANTS)}")
         self.config = c = SMALL if small else HadDims()
         self.tokenizer = tokenizer
-        vision = dict(backbone="resnet50", pretrained=False, output_dim=c.visual_dim, freeze_bn=True)
-        self.front_encoder = FrontEncoder(**vision)
-        self.front_encoder.set_train_backbone(False)
-        self.down_encoder = DownEncoder(**vision)
-        self.down_encoder.set_train_backbone(False)
+        self.front_encoder = ViewProjection(c.visual_dim)
+        self.down_encoder = ViewProjection(c.visual_dim)
         self.text_encoder = TextEncoder(vocab_size=tokenizer.vocab_size, embedding_dim=c.text_embedding_dim,
                                         hidden_dim=c.text_hidden_dim, num_layers=c.text_layers, bidirectional=True,
                                         dropout=c.dropout, encoder_type="lstm", max_len=tokenizer.max_length)
@@ -85,15 +107,10 @@ class TerrainHAD(nn.Module):
                                       use_progress_monitor=False, use_dz_sign_aux=False)
         self.variant = variant
         self.views = VARIANTS[variant]
-        if not cached_only:
-            validate_weights(str(Path(weights).resolve()))
-            weights = torch.load(weights, map_location="cpu", weights_only=True)
-            state = {k: v for k, v in weights.items() if not k.startswith("fc.")}
-            for encoder in (self.front_encoder, self.down_encoder):
-                encoder.cnn.load_state_dict(state, strict=True)
         for view in ("front", "down"):
             if view not in self.views:
                 getattr(self, f"{view}_encoder").proj.requires_grad_(False)
+        self.backbone = None if cached_only else (backbone if backbone is not None else DinoFeatures())
 
     def forward(self, features, tokens, state):
         if set(features) != set(self.views):
@@ -110,17 +127,19 @@ class TerrainHAD(nn.Module):
         return {"action": out["pred_action"], "stop_logit": out["stop_logit"].reshape(-1)}
 
     def from_images(self, images, tokens, state):
+        if self.backbone is None:
+            raise ValueError("Built with cached_only=True; raw images need the backbone")
         if set(images) != set(self.views):
             raise ValueError("Unexpected image views")
         with torch.no_grad():
-            features = {v: getattr(self, f"{v}_encoder").cnn(x) for v, x in images.items()}
+            features = {v: self.backbone(x) for v, x in images.items()}
         return self(features, tokens, state)
 
     def head_state(self):
-        return {k: v.detach().cpu() for k, v in self.state_dict().items() if ".cnn." not in k}
+        return {k: v.detach().cpu() for k, v in self.state_dict().items() if not k.startswith("backbone.")}
 
     def load_head_state(self, state):
-        expected = {k for k in self.state_dict() if ".cnn." not in k}
+        expected = {k for k in self.state_dict() if not k.startswith("backbone.")}
         if set(state) != expected:
             raise ValueError("Checkpoint head schema differs")
         self.load_state_dict(state, strict=False)

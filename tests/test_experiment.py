@@ -6,7 +6,7 @@ import torch
 
 from sr3m.geometry import action_target_ned, check_climb, fru_to_world, ned_to_ue_world_m, ue_world_m_to_ned
 from experiments.protocol import PROTOCOL, stop_suffix
-from had.model import TerrainHAD
+from had.model import FEATURE_DIM, TerrainHAD, pooled_tokens
 from had.tokenizer import Tokenizer
 from experiments.metrics import calibrate_stop, evaluate, stop_metrics
 from experiments.summarize import gain
@@ -102,11 +102,11 @@ def test_common_seed_initialization_and_partial_views_do_not_require_missing_one
         state = model.head_state()
         if initial is None: initial = state
         else: assert all(torch.equal(state[k],initial[k]) for k in state)
-        features = {v:torch.randn(2,2048) for v in model.views}
+        features = {v:torch.randn(2,FEATURE_DIM) for v in model.views}
         out = model(features,torch.tensor([[2,3,4,0,0,0,0,0]]*2),torch.zeros(2,5))
         assert out["action"].shape == (2,4)
         if variant in ("C","N"):
-            with pytest.raises(ValueError): model({"front":torch.zeros(2,2048)},torch.ones(2,8,dtype=torch.long),torch.zeros(2,5))
+            with pytest.raises(ValueError): model({"front":torch.zeros(2,FEATURE_DIM)},torch.ones(2,8,dtype=torch.long),torch.zeros(2,5))
         if variant == "N":
             assert torch.equal(out["action"], model({},torch.tensor([[2,3,4,0,0,0,0,0]]*2),torch.zeros(2,5))["action"])
 
@@ -114,14 +114,38 @@ def test_common_seed_initialization_and_partial_views_do_not_require_missing_one
 def test_raw_image_and_cached_forward_match_and_projection_is_trainable():
     torch.set_num_threads(2)
     tokenizer = Tokenizer.fit(["fly right"],max_length=4)
-    model = TerrainHAD("C",tokenizer,cached_only=True,small=True).eval()
+    torch.manual_seed(3); cached_model = TerrainHAD("C",tokenizer,cached_only=True,small=True)
+    backbone = torch.nn.Sequential(torch.nn.Flatten(),torch.nn.Linear(3*32*32,FEATURE_DIM)).requires_grad_(False)
+    torch.manual_seed(3); model = TerrainHAD("C",tokenizer,small=True,backbone=backbone).eval()
+    assert all(torch.equal(v,cached_model.head_state()[k]) for k,v in model.head_state().items())  # backbone built last
+    assert set(model.head_state()) == set(cached_model.head_state())
     images = {"down":torch.randn(2,3,32,32)}; tokens = torch.ones(2,4,dtype=torch.long); state = torch.zeros(2,5)
     with torch.no_grad():
-        cached = {"down":model.down_encoder.cnn(images["down"])}
+        cached = {"down":backbone(images["down"])}
         a,b = model(cached,tokens,state), model.from_images(images,tokens,state)
     assert all(torch.allclose(a[k],b[k],atol=1e-6) for k in a)
-    assert not any(p.requires_grad for p in model.down_encoder.cnn.parameters())
+    with pytest.raises(ValueError): cached_model.from_images(images,tokens,state)
     assert all(p.requires_grad for p in model.down_encoder.proj.parameters())
+
+
+def test_pooled_tokens_keep_cls_then_row_major_2x2_quadrants():
+    hidden = torch.zeros(1,1+16,2); hidden[0,0] = torch.tensor([7.,8.])
+    for i in range(4):
+        for j in range(4): hidden[0,1+4*i+j] = torch.tensor([float(i),float(j)])
+    out = pooled_tokens(hidden).reshape(5,2)
+    assert torch.equal(out[0],torch.tensor([7.,8.]))
+    assert torch.equal(out[1:],torch.tensor([[.5,.5],[.5,2.5],[2.5,.5],[2.5,2.5]]))  # TL, TR, BL, BR
+
+
+def test_dinov2_backbone_is_frozen_and_gives_protocol_width():
+    transformers = pytest.importorskip("transformers")
+    from had.model import DinoFeatures
+    torch.manual_seed(0)
+    config = transformers.Dinov2Config(hidden_size=768,num_hidden_layers=1,num_attention_heads=2,mlp_ratio=1,image_size=224,patch_size=14)
+    net = DinoFeatures(config).train()
+    assert not net.net.training and not any(p.requires_grad for p in net.parameters())
+    with torch.no_grad(): out = net(torch.randn(2,3,224,224))
+    assert out.shape == (2,FEATURE_DIM) == (2,PROTOCOL["feature_dim"]) and torch.isfinite(out).all()
 
 
 def test_agl_matched_interaction_has_no_invented_high_control():
@@ -137,7 +161,7 @@ def test_checkpoint_safe_reload_preserves_vocab_contract_and_outputs(tmp_path):
     torch.set_num_threads(2)
     tok=Tokenizer.fit(["fly over terrain"],max_length=4)
     model=TerrainHAD("B",tok,cached_only=True,small=True).eval()
-    features={v:torch.randn(2,2048) for v in model.views};tokens=torch.ones(2,4,dtype=torch.long);state=torch.zeros(2,5)
+    features={v:torch.randn(2,FEATURE_DIM) for v in model.views};tokens=torch.ones(2,4,dtype=torch.long);state=torch.zeros(2,5)
     with torch.no_grad(): expected=model(features,tokens,state)
     save_torch(tmp_path/"model.pt",{"head":model.head_state(),"tokenizer":tok.to_dict(),"protocol":PROTOCOL,"torch":str(torch.__version__)})
     restored=torch.load(tmp_path/"model.pt",map_location="cpu",weights_only=True)
@@ -172,7 +196,7 @@ def test_epoch_checkpoint_resume_matches_uninterrupted_training(tmp_path,monkeyp
     tokenizer=Tokenizer.fit(["follow terrain"],max_length=4)
     token=module.token_rows(train_ds,tokenizer)
     tokens={"train":token,"val_seen":token}
-    x={v:np.random.default_rng(11).normal(size=(train_ds.n,2048)).astype("float32") for v in ("front","down")}
+    x={v:np.random.default_rng(11).normal(size=(train_ds.n,FEATURE_DIM)).astype("float16") for v in ("front","down")}
     data={"train":train_ds,"val_seen":seen};features={"train":x,"val_seen":x}
     monkeypatch.setitem(PROTOCOL,"optimizer",dict(PROTOCOL["optimizer"],max_epochs=2,min_epochs=1,batch_size=4))
     monkeypatch.setattr(module,"TerrainHAD",lambda variant,tok,cached_only:TerrainHAD(variant,tok,cached_only=cached_only,small=True))
