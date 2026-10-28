@@ -52,6 +52,8 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/27 10:09 打开 val_unseen（第二次查看，经我确认），见 `runs/terrain_v2_dino/decision/dino_results.md`：门槛过，**H1 14.7%（CI [9.9, 19.2]）**，H2 未过（8.7%，CI [−3.0, 23.1]），对照组伤害 +2.4cm（仍主要是 des_c_high_dogleg_004，40.7cm）→ §6 决策表同 v2"先查融合"。**S1 通过**（Δ = R_dino − R_resnet = +10.0%，CI [5.3, 14.7]）→ 论文主结果用 DINOv2 版，ResNet 作对照。**S2 通过**（C 相对 A 11.5%，CI [5.7, 16.8]），"俯视单独优于前视"可写；S3：相对 N，A 6.5%、C 17.2%、B 20.3%。
 - 10/27 融合排查（`runs/terrain_v2_dino/decision/fusion_diag.md`，仅描述）：A/B 几乎不用指令里的"随地形/定高"条件（反事实互换只让 β 变化约 0.07）；未见陡坡定高的误爬升来自俯视。我同意 R1（protocol.md §12，`train.py --augment hold`，代码 `f9a20ce`）：随地形路线加定高指令副本、dz 目标 0；开发判据只用 val_seen（反事实定高 β ≤ 0.05 等三条）。B、A 种子 42，输出 `runs/terrain_v2_dino/r1/`。
 - 10/27 R1 结果（`runs/terrain_v2_dino/r1/r1_results.md`）：服从性修好（反事实定高 β 0.24→0.00），但未过开发判据（B 随地形 β 0.337→0.301；A 随地形 dz +1.0cm），不跑 3 种子。**我决定融合问题写成发现、不再修**（"模型不用高度条件"+反事实互换测试+R1 的权衡），转向闭环仿真。一页结论 DINOv2 版：`runs/terrain_v2_dino/decision/onepage.md`。
+- 10/27 偏离诊断会议（`~/.claude/drift-reports/.../report.md`）后：research_plan 已按现状重写（`bec03cd`，含"已确立的结论"和当前阶段）；闭环先用 16 条 val_seen 路线跑通，未见地图闭环测试集等 P2 后再定；恢复逐路线分析；N 补种子 43/44（10/28 完成，S3 三种子：A 6.7%、C 17.4%、B 20.4%）。
+- 10/28 闭环路线：**先搭 A（Cosys-AirSim，P0 由我在 Windows 上构建，时间盒 1 天），同时备好 K（运动学闭环，复用采集渲染器）**；A 构建失败或 P1 图像对不上就转 K。理由：想用动力学作差异点，K 与 A 共用 WSL 驱动，可量化动力学 gap。材料在 `runs/closed_loop/`（`p0_checklist.md`、`check_airsim.py`、`k_spec.md`）。注意：SR3M 数据由工作台 SceneCapture2D 管线采集（手动曝光，desert +4 EV、其余 −10 EV），不是 AirSim 相机。
 
 ## 6. 暂缓的探索路线
 
