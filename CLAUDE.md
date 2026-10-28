@@ -51,6 +51,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/27 我同意用 DINOv2 重做（protocol.md §11 预注册：主判据同 §6；次判据 S1 编码器是否放大俯视帮助、S2 俯视单独是否优于前视）。`PROTOCOL` = `sr3m_had_terrain_v2_dinov2`；只换冻结视觉特征（CLS + 2×2 patch 平均，3840 维，float16 缓存），其余同 v2。v2 ResNet 代码在 `4b0faf9`。代码 `f295e31` 跑完：prepare、过拟合、缓存、A/B × 3 种子（10/27 09:58 冻结）。
 - 10/27 10:09 打开 val_unseen（第二次查看，经我确认），见 `runs/terrain_v2_dino/decision/dino_results.md`：门槛过，**H1 14.7%（CI [9.9, 19.2]）**，H2 未过（8.7%，CI [−3.0, 23.1]），对照组伤害 +2.4cm（仍主要是 des_c_high_dogleg_004，40.7cm）→ §6 决策表同 v2"先查融合"。**S1 通过**（Δ = R_dino − R_resnet = +10.0%，CI [5.3, 14.7]）→ 论文主结果用 DINOv2 版，ResNet 作对照。**S2 通过**（C 相对 A 11.5%，CI [5.7, 16.8]），"俯视单独优于前视"可写；S3：相对 N，A 6.5%、C 17.2%、B 20.3%。
 - 10/27 融合排查（`runs/terrain_v2_dino/decision/fusion_diag.md`，仅描述）：A/B 几乎不用指令里的"随地形/定高"条件（反事实互换只让 β 变化约 0.07）；未见陡坡定高的误爬升来自俯视。我同意 R1（protocol.md §12，`train.py --augment hold`，代码 `f9a20ce`）：随地形路线加定高指令副本、dz 目标 0；开发判据只用 val_seen（反事实定高 β ≤ 0.05 等三条）。B、A 种子 42，输出 `runs/terrain_v2_dino/r1/`。
+- 10/27 R1 结果（`runs/terrain_v2_dino/r1/r1_results.md`）：服从性修好（反事实定高 β 0.24→0.00），但未过开发判据（B 随地形 β 0.337→0.301；A 随地形 dz +1.0cm），不跑 3 种子。**我决定融合问题写成发现、不再修**（"模型不用高度条件"+反事实互换测试+R1 的权衡），转向闭环仿真。一页结论 DINOv2 版：`runs/terrain_v2_dino/decision/onepage.md`。
 
 ## 6. 暂缓的探索路线
 
