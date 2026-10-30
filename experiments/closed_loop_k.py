@@ -115,6 +115,7 @@ def run(args):
     policy, identity = load_policy(args.checkpoint, route, args.device) if args.checkpoint else (None, None)
     with UEBackend(out.with_suffix(".session"), profile, map_package, capture, restart_every=args.restart_every) as backend:
         result = fly(backend, positions, yaws, policy)
+    result.update(unexpected_exits=backend.unexpected_exits, renders=backend.renders, starts=backend.starts)
     result.update(episode_id=args.episode, map_package=map_package, backend="kinematic", split=args.split, identity=identity and {k: identity[k] for k in identity if k != "tokenizer"})
     write_json(out, result)
     print(json.dumps({k: result[k] for k in ("passed", "SR20", "steps", "failure", "distance_goal_m", "ordered_progress_fraction", "stopped")}))

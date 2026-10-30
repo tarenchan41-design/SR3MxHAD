@@ -16,6 +16,11 @@ TOOLS = "E:/UnrealProjects/firstProject/Automation/ue_scripts"
 PROJECTS = {"mountain_base": "E:/UnrealProjects/mountain_base/military_mountains/military_mountains.uproject",
             "forests_new": "E:/UnrealProjects/forests_new/military_forests/military_forests.uproject"}
 SWEEP = {"interval_cm": 50., "radius_cm": 100.}  # The capture tool's collision check.
+MAX_UNEXPECTED_EXITS = 5
+
+
+class ServerExited(RuntimeError):
+    pass
 
 
 def windows_path(path):
@@ -39,7 +44,7 @@ class UEBackend:
             raise ValueError(f"No project known for profile {profile}")
         self.session, self.profile, self.map_package = Path(session), profile, map_package
         self.capture, self.restart_every, self.keep_images, self.start_timeout = capture, restart_every, keep_images, start_timeout
-        self.process, self.number, self.renders, self.since_start, self.starts = None, 0, 0, 0, 0
+        self.process, self.number, self.renders, self.since_start, self.starts, self.unexpected_exits = None, 0, 0, 0, 0, 0
         self.images = self.session / "images"
 
     def __enter__(self):
@@ -59,10 +64,11 @@ class UEBackend:
         attempt.mkdir(parents=True)
         self.images.mkdir(parents=True, exist_ok=True)
         (attempt / "config.json").write_text(json.dumps({"tools_dir": TOOLS, "map_package": self.map_package, "capture": self.capture, "idle_exit_s": 300.}), encoding="utf-8")
-        arguments = [PROJECTS[self.profile], "-Unattended", "-NoSound", "-NoSplash", "-NoSourceControl", "-RenderOffscreen", "-AllowCommandletRendering",
+        arguments = [PROJECTS[self.profile], "-Unattended", "-NoSound", "-NoSplash", "-NoSourceControl", "-RenderOffscreen", "-AllowCommandletRendering", "-stdout", "-FullStdOutLogOutput",
                      "-ExecutePythonScript=" + windows_path(ROOT / "sim_k/ue_server.py"), "-KSession=" + windows_path(attempt), "-AbsLog=" + windows_path(attempt / "Unreal.log")]
-        command = f"& '{ENGINE}' " + " ".join(f"'{a}'" for a in arguments) + " | Out-Null; exit $LASTEXITCODE"
-        self.process = subprocess.Popen(["powershell.exe", "-NoProfile", "-Command", command], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        command = f"& '{ENGINE}' " + " ".join(f"'{a}'" for a in arguments) + "; exit $LASTEXITCODE"
+        with open(attempt / "stdout.log", "wb") as log:
+            self.process = subprocess.Popen(["powershell.exe", "-NoProfile", "-Command", command], stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
         self.attempt, self.number, self.since_start = attempt, 0, 0
         self.starts += 1
         deadline = time.monotonic() + self.start_timeout
@@ -74,8 +80,19 @@ class UEBackend:
             time.sleep(.2)
 
     def call(self, op, timeout=300., **args):
-        if self.process is None:
-            self.start()
+        """Every operation is stateless, so a server that died is simply restarted and asked again."""
+        while True:
+            if self.process is None:
+                self.start()
+            try:
+                return self.exchange(op, timeout, args)
+            except ServerExited:
+                self.unexpected_exits += 1
+                self.process = None
+                if self.unexpected_exits > MAX_UNEXPECTED_EXITS:
+                    raise
+
+    def exchange(self, op, timeout, args):
         self.number += 1
         request, reply = self.attempt / f"request-{self.number:06d}.json", self.attempt / f"reply-{self.number:06d}.json"
         temporary = request.with_name(request.name + ".tmp")
@@ -84,10 +101,16 @@ class UEBackend:
         deadline = time.monotonic() + timeout
         while not reply.exists():
             if self.process.poll() is not None or time.monotonic() > deadline:
-                raise RuntimeError(f"UE server stopped answering {op}; see {self.attempt / 'Unreal.log'}")
+                raise ServerExited(f"UE server stopped answering {op} (exit code {self.process.poll()}); see {self.attempt / 'stdout.log'}")
             time.sleep(.005)
-        answer = json.loads(reply.read_text(encoding="utf-8"))
-        reply.unlink(missing_ok=True)
+        while True:
+            try:  # Same file-sharing race as on the server side.
+                answer = json.loads(reply.read_text(encoding="utf-8"))
+                break
+            except (OSError, ValueError):
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(.01)
         if not answer["ok"]:
             raise RuntimeError(answer["error"])
         return answer
@@ -119,7 +142,7 @@ class UEBackend:
         if self.process is None:
             return
         try:
-            self.call("stop", timeout=60.)
+            self.exchange("stop", 60., {})
             self.process.wait(timeout=120.)
         except (RuntimeError, subprocess.TimeoutExpired):
             pass  # The server exits by itself when idle; start() waits for that.

@@ -120,7 +120,12 @@ def main():
                     break
                 time.sleep(.01)
                 continue
-            message = json.loads(request.read_text(encoding="utf-8"))
+            # The file crosses from WSL to Windows, which can briefly refuse access just after it appears.
+            try:
+                message = json.loads(request.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                time.sleep(.01)
+                continue
             if message["op"] == "stop":
                 write_atomic(SESSION / f"reply-{number:06d}.json", {"ok": True})
                 break
@@ -129,7 +134,6 @@ def main():
             except Exception:
                 reply = {"ok": False, "error": traceback.format_exc()}
             write_atomic(SESSION / f"reply-{number:06d}.json", reply)
-            request.unlink(missing_ok=True)
             number, last = number + 1, time.monotonic()
     except Exception:
         write_atomic(SESSION / "failed.json", {"error": traceback.format_exc()})

@@ -142,6 +142,7 @@ def gate3(args):
             _, capture, profile, map_package = capture_settings(args.data_root, episode)
             with UEBackend(file.with_suffix(".session"), profile, map_package, capture) as backend:
                 result = fly(backend, positions, yaws)
+            result["unexpected_exits"] = backend.unexpected_exits
             write_json(file, result)
         result = read_json(file)
         agls = [h["agl_m"] for h in result["history"] if h["agl_m"] is not None]
