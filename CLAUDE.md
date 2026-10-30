@@ -18,7 +18,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 
 ## 3. 环境与位置
 
-- 仿真：UE 5.8.4 + Cosys-AirSim 3.5.0（插件需从源码构建），尚未完成真实闭环。
+- 仿真：主闭环为运动学闭环 K（`sim_k/`、`experiments/closed_loop_k.py`、`experiments/k_gates.py`），用数据集的无头方式渲染，运行时要关闭 GUI 编辑器。UE 5.8.4 + Cosys-AirSim 3.5.0 已构建在工程副本 `military_mountains_airsim_p0`，代码保留但不作主结果。
 - 数据：当前发布划分 `<data_root>/benchmark_split_v2`（v1 只读保留）；地形导出见 `terrain_dir`（mountain）和 `desert_terrain_dir`（desert）；位置在 `configs/paths.toml`（不进 Git，样例 `paths.example.toml`）。v2 由 `python -m sr3m.release_v2` 生成。
 - Python：`/home/qlj/h3c_pro/HAD-UAV-VLN/.venv`（3.12）。命令在仓库根目录用 `python -m experiments.<stage>` 运行，测试 `python -m pytest -q`。
 - 实验产物（不进 Git）：当前 DINOv2 重做在 `runs/terrain_v2_dino/`（缓存 `~/sr3mxhad_runs/terrain_v2_dino/features`）；v2 ResNet 结果与全部诊断在 `runs/terrain_v2/`，决策报告 `runs/terrain_v2/decision/decision.md`。`runs/terrain_v1/` 是 v1 试跑，只作参考。cache/overfit/closed_loop 需要 `PYTHONPATH=~/sr3mxhad_runs/pylib`（transformers 不装进共享 venv）。
@@ -54,6 +54,9 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 10/27 R1 结果（`runs/terrain_v2_dino/r1/r1_results.md`）：服从性修好（反事实定高 β 0.24→0.00），但未过开发判据（B 随地形 β 0.337→0.301；A 随地形 dz +1.0cm），不跑 3 种子。**我决定融合问题写成发现、不再修**（"模型不用高度条件"+反事实互换测试+R1 的权衡），转向闭环仿真。一页结论 DINOv2 版：`runs/terrain_v2_dino/decision/onepage.md`（10/28 我已审阅）。
 - 10/27 偏离诊断会议（`~/.claude/drift-reports/.../report.md`）后：research_plan 已按现状重写（`bec03cd`，含"已确立的结论"和当前阶段）；闭环先用 16 条 val_seen 路线跑通，未见地图闭环测试集等 P2 后再定；恢复逐路线分析；N 补种子 43/44（10/28 完成，S3 三种子：A 6.7%、C 17.4%、B 20.4%）。
 - 10/28 闭环路线：**先搭 A（Cosys-AirSim，P0 由我在 Windows 上构建，时间盒 1 天），同时备好 K（运动学闭环，复用采集渲染器）**；A 构建失败或 P1 图像对不上就转 K。理由：想用动力学作差异点，K 与 A 共用 WSL 驱动，可量化动力学 gap。材料在 `runs/closed_loop/`（`p0_checklist.md`、`check_airsim.py`、`k_spec.md`）。注意：SR3M 数据由工作台 SceneCapture2D 管线采集（手动曝光，desert +4 EV、其余 −10 EV），不是 AirSim 相机。
+- 10/29–30 AirSim P0 通过（修了 `moveToPosition` 滑过目标约 1 m，改 velocity servo，`c3ec51e`；单步 0.14 m、0.005°）。yaw 判据在看到结果后放宽：3 s 后的漂移不再判，只判观测时刻，论文要写明。
+- 10/30 P1 查明（`runs/closed_loop/p1_check/p1_status.md`）：AirSim 发白是插件 sRGB 渲染目标多了两层 gamma，已能修；用数据集代码无头重采可逐像素复现数据集（同顺序 MAE 0.00）。GUI、PIE 与数据集的差距来自运行方式：关天光后接近（只有 2 个位姿的证据，机制未证实），地面纹理差异原因未查。**余弦不能单独当判据**（AirSim 俯视中位 0.70，B 的 dz 只变 2.71 cm）。事先定的 P1 判据：B 的 |Δdz| 中位数 < 2.4 cm 且 B−A 变化 < 2.4 cm；AirSim 关天光 2.71 cm 未过（差距小），无头路径 0.08 和 1.16 cm 过。**我决定转 K**，放弃动力学差异点，论文写"运动学闭环"（protocol.md §7）。
+- 10/30 K 进行中（分支 `closedloop/kinematic`）：代码和单元测试完成，G2 通过（16 条路线开环积分最大 0.02 cm）。G1、G3 待跑（要先关闭 GUI 编辑器）。之后才跑模型。还未回答：数据集采集时天光基本不起作用这一点，对已有结果（尤其 desert 暗面、H2 暗帧混淆）的影响。
 - 10/28 逐路线分析（`runs/terrain_v2_dino/decision/per_route.md`，论文图 `fig_paper/`，val_unseen 已冻结报告，仅描述）：俯视相对增益不随坡度变（中位 13–17%），绝对增益随坡度变大（2.4→4.7→7.6 cm）；大幅负增益只在平缓路线；低空收益最大（mountain 低空 27%），高空小（desert 高空 4 条 −1%）——事后假设，需在新测试集上预注册才能写成结论。
 
 ## 6. 暂缓的探索路线

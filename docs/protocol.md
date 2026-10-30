@@ -136,6 +136,18 @@ python -m experiments.closed_loop --prepared runs/terrain_v1/prepared \
 
 成功率用 SR20，另报路线进度、碰撞、超时和提前 STOP，标明返回型路线的解释边界。
 
+**后端（10/30 决定）：主闭环改用运动学闭环 K，论文写明"运动学闭环"，不称飞控闭环；AirSim 代码保留，不作主结果。** 依据是事先定的 P1 判据（B 的 |Δdz| 中位数 < 2.4 cm 且 B−A 变化 < 2.4 cm，L_MTN_A 27 个位姿 × 3 种子）：AirSim 关天光 2.71 cm 未过，差距小；无头路径 0.08 和 1.16 cm 通过。详见 `runs/closed_loop/p1_check/p1_status.md`。上面的 AirSim 执行与门槛段落只适用于 AirSim 后端。
+
+K 用数据集的无头采集方式渲染（`UnrealEditor-Cmd -RenderOffscreen -AllowCommandletRendering`，import `capture_trajectory.py`，Python 阻塞游戏线程），动作由 `sr3m.geometry.integrate` 直接得到下一位姿，没有动力学。实现在 `sim_k/` 和 `experiments/closed_loop_k.py`，门槛在 `experiments/k_gates.py`：
+
+| 门槛 | 内容 | 通过标准 |
+|---|---|---|
+| G1 渲染 | 16 条路线各 32 个位姿，乱序且窗口不对齐数据集进程边界 | B 的 |Δdz| 中位数 < 2.4 cm，且 B−A dz 误差变化 < 2.4 cm（A、B × 3 种子）；同时报告 MAE 和余弦 |
+| G2 积分 | 数据集存的动作开环积分 | 每步位置 ≤ 1 cm、yaw ≤ 0.01° |
+| G3 专家 | 专家走完 K 的碰撞和离地检查（不渲染，G1 已覆盖） | 16/16 到终点 0.5 m 内，零碰撞 |
+
+G1 改用策略输出作判据，因为余弦无法说明差异是否影响决策（AirSim 俯视中位余弦 0.70，B 的 dz 只变 2.71 cm）。草案的"余弦 ≥ 0.995"在乱序下不成立（俯视最低 0.982）。终止：STOP 概率 ≥ val_seen 冻结阈值、步数预算 2×(专家步数−1)+20、球扫掠命中（半径 1 m、步长 0.5 m、Visibility 通道）、AGL < 2 m。G1–G3 全过才跑模型。
+
 **Desert（10/23 已采集并发布 v2，以下为当时的要求）**：沙丘生成方法由数据集侧自行确定（`sr3m/desert_terrain.py` 只是早期的四档起伏预览，不再是定稿方案）。要求：4 张图用不同沙丘场，每张图内都有平缓到陡峭的区域；每张图同时包含"随沿途地形调整高度"路线和在起伏上定高的路线（AGL 中/高层）；复用 mountain 的 AGL 分层、连续离地检查与采集流程。为接入 prepare，每张图需提供与 mountain 相同的地形产物：`scripts/terrain_model.py`、`evidence/persisted-<图ID>.json`、`evidence/continuous-agl-<图ID>.json`、`design/<图ID>.final.json`（含 `route_id`、`instruction_zh`、`height_layer`）。新数据发布为 `benchmark_split_v2`，不原地覆盖 v1；旧 desert 捕获保留不删。留出地图只进 val_unseen，不参与词表、统计、超参、checkpoint 或阈值选择。
 
 ## 8. 代码来源
