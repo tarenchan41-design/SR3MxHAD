@@ -124,7 +124,7 @@ val_unseen 合并为随地形 74 / 对照 22，低/中/高 41/7、22/12、11/3�
 
 **仿真准备**：用 UE 5.8.4 从源码构建 Cosys-AirSim 插件（预编译 5.8.2 不直接用），启用 Python API；MCP 不是依赖。复制 `configs/cosys_settings.example.json` 到实验设置位置，核对 front/down 相机 512×512、90° FOV、曝光和朝向与捕获一致；gimbal 固定 pitch/roll、yaw 跟随机体，用 `simGetCameraInfo` 和真实图像验收，尤其俯视 −90°。Python 环境安装 `cosysairsim`。手动打开路线对应的完整 map package、初始化到起点、记录 AirSim 原点在 UE 世界中的米坐标；运行时显式提供 `--map-package` 和 `--origin-ue-m`。
 
-**执行与门槛**：16 条路线在 `prepared/closed_loop_routes.json` 按几何固定（低/中 AGL × 两 cohort 各 3 条；高 AGL 随地形 2 条；非山地直行、返回各 1 条），属于 val_seen 的工程检查。执行时先按 yaw_t 把机体系动作旋回世界并固定目标点，保持 yaw_t 用 MaxDegreeOfFreedom 平移，到位后 rotateToYaw 到 yaw_t+dyaw，再 hover/取图。专家策略从实际当前状态指向记录的下一世界位姿，通过同一执行器；每步位置误差≤0.5m、yaw≤0.05°，旋转 API margin=0.01°（避免 2° 死区吞掉小转弯）。16/16 完成、零碰撞/超时后模型才能运行；禁止逐步 teleport 冒充回放。模型 STOP 阈值只读 val_seen 冻结选择，不合格则不启动模型闭环。
+**执行与门槛**：16 条路线在 `prepared/closed_loop_routes.json` 按几何固定（低/中 AGL × 两 cohort 各 3 条；高 AGL 随地形 2 条；非山地直行、返回各 1 条），属于 val_seen 的工程检查。执行时先按 yaw_t 把机体系动作旋回世界并固定目标点，保持 yaw_t 用 MaxDegreeOfFreedom 平移（`moveByVelocity` 位置闭环，到目标 0.2m 内且速度≤0.1m/s 才算到位；`moveToPosition` 在 0.5m 内就返回，仍有约 1.2m/s，会滑过目标约 1m），到位后 rotateToYaw 到 yaw_t+dyaw，再 hover/取图。专家策略从实际当前状态指向记录的下一世界位姿，通过同一执行器；每步位置误差≤0.5m、yaw≤0.05°（在 hover 返回后的观测时刻判定），旋转 API margin=0.01°（避免 2° 死区吞掉小转弯）。已知限制（10/30 实测）：rotateToYaw 返回时仍有约 0.4°/s 的转速，观测后约 1s 内 yaw 再变化最多约 0.15°（约 0.9 像素），下一步从实际 yaw 出发，不累积；报告中需写明。16/16 完成、零碰撞/超时后模型才能运行；禁止逐步 teleport 冒充回放。模型 STOP 阈值只读 val_seen 冻结选择，不合格则不启动模型闭环。
 
 ```bash
 python -m experiments.closed_loop --prepared runs/terrain_v1/prepared \
