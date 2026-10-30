@@ -24,7 +24,8 @@ class ServerExited(RuntimeError):
 
 
 def windows_path(path):
-    return subprocess.check_output(["wslpath", "-m", str(path)], text=True).strip()
+    # wslpath keeps a relative path relative, and UE resolves those against its own binaries folder.
+    return subprocess.check_output(["wslpath", "-m", str(Path(path).resolve())], text=True).strip()
 
 
 def powershell(command, **kwargs):
