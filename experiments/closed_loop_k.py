@@ -45,7 +45,8 @@ def fly(backend, positions, yaws, policy=None):
     history, failure, stopped, progress = [], None, False, 0
     for t in range(budget):
         if policy:
-            decision = policy(backend.render(position, yaw), policy_state(position, yaw, positions[0], float(yaws[0])))
+            images = backend.render(position, yaw) if getattr(policy, "needs_images", True) else {}
+            decision = policy(images, policy_state(position, yaw, positions[0], float(yaws[0])))
             if decision["stop"]:
                 stopped = True
                 history.append({"step": t, "position_m": position.tolist(), "yaw_rad": yaw, "stop_probability": decision["stop_probability"]})
@@ -53,8 +54,8 @@ def fly(backend, positions, yaws, policy=None):
             action = decision["action"]
         else:
             action = adjacent_action(position, yaw, positions[t + 1], float(yaws[t + 1]))
-        target, next_yaw = integrate(position, yaw, action)
-        target = np.asarray(target, dtype=float)
+        target, next_yaw = integrate(position, yaw, np.asarray(action, dtype=float))
+        target, next_yaw = np.asarray(target, dtype=float), float(next_yaw)
         sweep = backend.sweep(position, target)
         ground = backend.ground_z_m(target)
         agl = None if ground is None else float(target[2] - ground)
@@ -101,14 +102,22 @@ def load_policy(checkpoint, route, device):
             output = model.from_images(batch, tokens, current)
         probability = float(output["stop_logit"].sigmoid().item())
         return {"stop": probability >= threshold, "stop_probability": probability, "action": output["action"][0].cpu().numpy()}
+    policy.needs_images = bool(model.views)
     return policy, saved["identity"]
 
 
 def run(args):
+    """One route to --out, or with --episode all every fixed closed-loop route into the --out folder, resuming."""
+    if args.episode != "all":
+        return run_route(args, args.episode, Path(args.out))
+    for item in read_json(Path(args.prepared) / "closed_loop_routes.json")["routes"]:
+        run_route(args, item["episode_id"], Path(args.out) / (item["episode_id"].split("--")[-1] + ".json"))
+
+
+def run_route(args, episode, out):
     from sim_k.backend import UEBackend
-    ds, route, positions, yaws = route_info(args.prepared, args.split, args.episode)
-    _, capture, profile, map_package = capture_settings(args.data_root, args.episode)
-    out = Path(args.out)
+    ds, route, positions, yaws = route_info(args.prepared, args.split, episode)
+    _, capture, profile, map_package = capture_settings(args.data_root, episode)
     if out.exists() and not args.overwrite:
         print(f"{out} exists; skipping")
         return
@@ -116,9 +125,9 @@ def run(args):
     with UEBackend(out.with_suffix(".session"), profile, map_package, capture, restart_every=args.restart_every) as backend:
         result = fly(backend, positions, yaws, policy)
     result.update(unexpected_exits=backend.unexpected_exits, renders=backend.renders, starts=backend.starts)
-    result.update(episode_id=args.episode, map_package=map_package, backend="kinematic", split=args.split, identity=identity and {k: identity[k] for k in identity if k != "tokenizer"})
+    result.update(episode_id=episode, map_package=map_package, backend="kinematic", split=args.split, identity=identity and {k: identity[k] for k in identity if k != "tokenizer"})
     write_json(out, result)
-    print(json.dumps({k: result[k] for k in ("passed", "SR20", "steps", "failure", "distance_goal_m", "ordered_progress_fraction", "stopped")}))
+    print(out.stem[:40], json.dumps({k: result[k] for k in ("passed", "SR20", "steps", "failure", "distance_goal_m", "ordered_progress_fraction", "stopped")}), flush=True)
 
 
 if __name__ == "__main__":

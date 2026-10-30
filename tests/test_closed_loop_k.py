@@ -1,4 +1,5 @@
 import ast
+import json
 import math
 from pathlib import Path
 import numpy as np
@@ -42,6 +43,15 @@ def test_policy_moves_by_integration_and_stops():
     result = fly(Fake(), positions, yaws, policy)
     assert result["SR20"] and result["stopped"] and result["distance_goal_m"] < 1e-9
     assert np.allclose(calls[1], [.02, 0., 0., 0., 1.])
+
+
+def test_result_is_json_serializable_with_float32_actions():
+    positions, yaws = route(3)
+    calls = []
+    def policy(images, state):
+        calls.append(state)
+        return {"stop": len(calls) == 3, "stop_probability": .5, "action": np.array([2., 0., 0., .1], dtype=np.float32)}
+    json.dumps(fly(Fake(), positions, yaws, policy))
 
 
 def test_collision_and_ground_fail_the_flight():
