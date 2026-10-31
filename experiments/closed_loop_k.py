@@ -110,7 +110,7 @@ def run(args):
     """One route to --out, or with --episode all every fixed closed-loop route into the --out folder, resuming."""
     if args.episode != "all":
         return run_route(args, args.episode, Path(args.out))
-    for item in read_json(Path(args.prepared) / "closed_loop_routes.json")["routes"]:
+    for item in read_json(args.routes or Path(args.prepared) / "closed_loop_routes.json")["routes"]:
         run_route(args, item["episode_id"], Path(args.out) / (item["episode_id"].split("--")[-1] + ".json"))
 
 
@@ -135,4 +135,5 @@ if __name__ == "__main__":
     p.add_argument("--prepared", required=True); p.add_argument("--split", default="val_seen"); p.add_argument("--episode", required=True)
     p.add_argument("--data-root", required=True); p.add_argument("--out", required=True); p.add_argument("--checkpoint")
     p.add_argument("--device", default="cuda"); p.add_argument("--restart-every", type=int, default=32); p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--routes", help="With --episode all: a JSON file listing routes, instead of the fixed closed-loop set")
     run(p.parse_args())
