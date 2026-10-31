@@ -73,7 +73,7 @@ desert 重建现在是主线的前置条件：训练要等新 desert 数据。11
 - [x] K 门槛 G1 渲染 / G2 积分 / G3 专家（10/30 全过，替代下面的 AirSim P2，protocol.md §7）
 - [ ] P2 专家回放门槛（AirSim 后端专用，主闭环不再需要）：16 条 val_seen 路线（mountain 14 + forests 2），每步 ≤0.5m、≤0.05°，零碰撞/超时（产出：16/16 通过）
 - [x] 短程滚动（10/31 完成，判据未过，`runs/closed_loop/k/rollouts/results.md`）：测局部高度跟踪，不替代 SR20
-- [ ] 长程 SR20 改进（完整论文很可能必需；10/30 首轮 2/96，A、B、N 都飞不到）：方案未定
+- [ ] 长程 SR20 改进（完整论文很可能必需；10/30 首轮 2/96，A、B、N 都飞不到；10/31 B 在训练路线上也是 0/16，主因不是泛化，差距出现在闭环，`runs/closed_loop/k/flights_train/results.md`）：方案未定
 - [ ] P2 之后决定未见地图闭环测试集：第三次使用 val_unseen，或另建一张新的未见地图；路线与指标（含高度带越界、定高漂移）飞前预注册
 - [ ] P3 模型飞行（10/30 A/B 首轮完成：SR20 2/96，见 `runs/closed_loop/k/flights/results.md`；C、N 未跑）：DINOv2 A/B × 3 种子，再 C、N；指标 SR20、终点距离、碰撞、进度（产出：闭环结果表）
 - [ ] 逐路线分析"俯视何时有用"+ 论文图（CPU，P0 期间做）
