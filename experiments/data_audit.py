@@ -209,7 +209,7 @@ def report(rows):
         frames = sum(r["frames_per_view"] for r in group)
         values = [100 * sum(r[k] for r in group) / frames for k in ("black_front", "black_down", "total_black_front", "total_black_down", "plain_front", "plain_down")]
         print(f"    {category:16s} {values[0]:5.1f} {values[1]:5.1f} | {values[2]:5.2f} {values[3]:5.2f} | {values[4]:5.1f} {values[5]:5.1f}")
-    show(f"route with a frame over {TOTAL_BLACK:.0%} near black", share(rows, "total_black_front", lambda v: v > 0))
+    show(f"route with a frame over {TOTAL_BLACK:.0%} near black, either view", (sum(r["total_black_front"] + r["total_black_down"] > 0 for r in rows), len(rows)))
     worst = sorted(rows, key=lambda r: r["total_black_front"] + r["total_black_down"], reverse=True)[:8]
     print("  worst:", [(r["route"], r["total_black_front"], r["total_black_down"], r["frames_per_view"]) for r in worst])
 
