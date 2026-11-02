@@ -912,7 +912,8 @@
   "top_z": 53.2,
   "width_m": 27,
   "old": "Concrete H pad on the canyon floor next to the research camp",
-  "frame": "L_DES_B__Landing_Pad_Camp.jpg"
+  "frame": "L_DES_B__Landing_Pad_Camp.jpg",
+  "warn": "v2 帧的红框里看不到停机坪，可能被地形盖住或坐标有偏差，请重点看"
  },
  {
   "map": "L_DES_B",

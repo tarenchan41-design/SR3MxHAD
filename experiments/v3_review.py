@@ -113,7 +113,8 @@ def object_card(obj, out):
     identity = f'{obj["map"]}/{obj["key"]}'
     options = "".join(f'<label><input type="radio" name="obj__{html.escape(identity)}" value="{v}" data-id="{html.escape(identity)}" data-q="verdict">{t}</label>' for v, t in OBJECT_CHOICES)
     limit = min(8 * obj["width_m"], 250)
-    return f"""<div class="obj" data-id="{html.escape(identity)}">{frame}<div class="objtext"><b>{html.escape(obj["zh"])}</b><br><span class="en">{html.escape(obj["en"])}</span><br><span class="meta">{obj["map"]} · {html.escape(obj["cls"])} · 宽 {obj["width_m"]:.0f} m · 起点最远 {limit:.0f} m<br>旧描述：{html.escape(str(obj.get("old") or "无"))}</span></div><div class="opts">{options}</div><input class="note" data-id="{html.escape(identity)}" data-q="note" placeholder="改成什么（可不填）"></div>"""
+    warning = f'<br><span class="badge">注意：{html.escape(obj["warn"])}</span>' if obj.get("warn") else ""
+    return f"""<div class="obj" data-id="{html.escape(identity)}">{frame}<div class="objtext"><b>{html.escape(obj["zh"])}</b><br><span class="en">{html.escape(obj["en"])}</span><br><span class="meta">{obj["map"]} · {html.escape(obj["cls"])} · 宽 {obj["width_m"]:.0f} m · 起点最远 {limit:.0f} m<br>旧描述：{html.escape(str(obj.get("old") or "无"))}</span>{warning}</div><div class="opts">{options}</div><input class="note" data-id="{html.escape(identity)}" data-q="note" placeholder="改成什么（可不填）"></div>"""
 
 
 def route_card(number, route, ground, thumbs, out):
