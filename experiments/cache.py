@@ -93,6 +93,6 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prepared", required=True); p.add_argument("--root", required=True); p.add_argument("--out", required=True)
     p.add_argument("--device", default="cuda")
-    p.add_argument("--splits", nargs="+", choices=("train", "val_seen", "val_unseen"), default=["train", "val_seen", "val_unseen"])
+    p.add_argument("--splits", nargs="+", choices=("train", "val_seen", "val_unseen", "dev"), default=["train", "val_seen", "val_unseen"])
     p.add_argument("--batch-size", type=int, default=32); p.add_argument("--workers", type=int, default=8)
     extract(p.parse_args())

@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 
 from experiments.closed_loop_k import capture_settings
-from experiments.protocol import read_json, write_json
+from experiments.protocol import code_version, read_json, write_json
 from experiments.v3_leak import DESIGNS, Ground
 
 SEED = 20261103
@@ -108,6 +108,7 @@ def render_route(backend, route, folder, steps):
 def render(args):
     from sim_k.backend import UEBackend
     root = Path(args.out)
+    code = code_version()
     planned = read_json(root / "plan.json")
     for map_id in args.maps:
         entry = planned["maps"][map_id]
@@ -141,7 +142,7 @@ def render(args):
                     images = render_route(backend, route, folder, steps)
                     rank = len(accepted)
                     write_json(folder / "route.json", {**route, "split": split_of(map_id, rank), "rank": rank, "rendered_steps": steps, "images": images,
-                                                       "map_package": map_package, "profile": profile, "capture": capture, "plan_seed": planned["seed"], "design": planned["design"]})
+                                                       "map_package": map_package, "profile": profile, "capture": capture, "plan_seed": planned["seed"], "design": planned["design"], "code": code})
                 log[route["id"]] = "accepted"
                 write_json(log_path, log)
                 accepted.append(route["id"])
