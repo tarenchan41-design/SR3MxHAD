@@ -194,3 +194,20 @@ def test_pose_read_back_from_the_policy_state_and_the_reference_oracle_arrives()
             break
         p, y = integrate(tuple(p), y, d["action"]); p = np.array(p)
     assert d["stop"] and np.hypot(p[0] - 150., p[1] - 80.) <= 1.
+
+
+def test_plural_objects_take_are_and_them():
+    rng = np.random.default_rng(0)
+    sheds = dict(building(), en="the sheds with orange roofs", zh="橙色屋顶的棚屋")
+    texts = {instruction(sheds, "left", "hold", rng)[0] for _ in range(30)}
+    assert any(" are " in t for t in texts) and all(" is ahead" not in t and "above it" not in t for t in texts)
+    camp = dict(building(), en="the camp of three black tents")
+    assert all(" are " not in instruction(camp, "left", "hold", rng)[0] for _ in range(20))
+
+
+def test_targets_far_below_are_rejected_before_they_reach_the_bottom_edge():
+    deep = dict(building(center=(0., 0.)), top_z=-150., height_m=5.)
+    rng = np.random.default_rng(0)
+    reasons = [propose(deep, [deep], lambda xy: np.where(np.hypot(*np.atleast_2d(xy).T) < 40, -155., 0.), Design(), rng)[1] for _ in range(40)]
+    assert "target near the bottom of the view" in reasons
+

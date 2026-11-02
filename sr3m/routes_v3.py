@@ -19,8 +19,10 @@ PATCH_FACTOR = 8.  # 256 px focal length / 32 px patch: a target of width w fill
 PATCH_PX = 32.
 FOCAL_PX = 256.
 MIN_CLEARANCE_M = 10.
+MAX_DEPRESSION_DEG = 35.  # Keeps the target off the bottom edge of the 90 degree front view.
+PLURAL = ("sheds", "pillars", "shacks", "ruins")
 ABOVE_TOP_M = 8.
-FRAMES = {"en": ("Fly to {what} {where} and stop directly above it. {height}", "{what} is {where}. Go there and stop right above it. {height}", "Your target is {what} {where}. Fly over to it and stop directly above it. {height}"),
+FRAMES = {"en": ("Fly to {what} {where} and stop directly above {it}. {height}", "{what} {is} {where}. Go there and stop right above {it}. {height}", "Your target is {what} {where}. Fly over to {it} and stop directly above {it}. {height}"),
           "zh": ("飞到{where}的{what}，并在其正上方停住。{height}", "{where}有{what}，飞过去，在它正上方停下。{height}", "目标是{where}的{what}，飞到它正上方后停住。{height}")}
 WHERE = {"ahead": ("ahead of you", "前方"), "left": ("ahead on your left", "左前方"), "right": ("ahead on your right", "右前方")}
 HEIGHT = {"follow": ("Follow the terrain along the way.", "全程随沿途地形调整高度。"), "hold": ("Keep a constant altitude.", "全程保持同一飞行高度、不随地形起伏升降。")}
@@ -164,7 +166,8 @@ def hold_height(z):
 
 def instruction(obj, word, mode, rng):
     frame = int(rng.integers(len(FRAMES["en"])))
-    en = FRAMES["en"][frame].format(what=obj["en"], where=WHERE[word][0], height=HEIGHT[mode][0])
+    plural = obj["en"].split(" with ")[0].split(" of ")[0].split()[-1] in PLURAL
+    en = FRAMES["en"][frame].format(what=obj["en"], where=WHERE[word][0], height=HEIGHT[mode][0], it="them" if plural else "it", **{"is": "are" if plural else "is"})
     return en[0].upper() + en[1:], FRAMES["zh"][frame].format(what=obj["zh"], where=WHERE[word][1], height=HEIGHT[mode][1])
 
 
@@ -190,6 +193,8 @@ def propose(obj, others, ground, design, rng, require_relief=False):
         return None, "below the target top"
     if abs(start[2] - obj["top_z"]) > distance:
         return None, "target outside the vertical view"
+    if math.degrees(math.atan2(start[2] - (obj["top_z"] - obj["height_m"] / 2), distance)) > MAX_DEPRESSION_DEG:
+        return None, "target near the bottom of the view"
     if apparent_px(obj["width_m"], obj["height_m"], distance, start[2] - (obj["top_z"] - obj["height_m"])) < PATCH_PX:
         return None, "too small from the start"
     if not line_of_sight(start, target, obj["top_z"], ground):
