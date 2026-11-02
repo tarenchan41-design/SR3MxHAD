@@ -1,0 +1,1037 @@
+[
+ {
+  "map": "L_MTN_A",
+  "key": "Helipad_30_m_diameter",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   115.0,
+   268.0
+  ],
+  "top_z": 1900.12,
+  "width_m": 30.0,
+  "old": "东侧圆形停机坪",
+  "frame": "L_MTN_A__Helipad_30_m_diameter.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Hangar_pitched_sheet_roof",
+  "cls": "hangar",
+  "en": "the large pitched-roof hangar",
+  "zh": "双坡屋顶的大机库",
+  "center": [
+   110.0,
+   128.0
+  ],
+  "top_z": 1913.16,
+  "width_m": 33.0,
+  "old": "东侧维修库的双坡大屋顶",
+  "frame": "L_MTN_A__Hangar_pitched_sheet_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Workshop_roof",
+  "cls": "workshop",
+  "en": "the large flat-roofed workshop",
+  "zh": "平顶大车间",
+  "center": [
+   12.0,
+   155.0
+  ],
+  "top_z": 1906.45,
+  "width_m": 29.0,
+  "old": "营区中北部维修棚屋顶",
+  "frame": "L_MTN_A__Workshop_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "UP26_LOGISTICS_02_pitched_roof",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   -115.0,
+   91.0
+  ],
+  "top_z": 1906.73,
+  "width_m": 34.8,
+  "old": "北侧后勤长库房坡屋顶",
+  "frame": "L_MTN_A__UP26_LOGISTICS_02_pitched_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Command_metal_roof",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   -120.0,
+   165.0
+  ],
+  "top_z": 1904.4,
+  "width_m": 30.7,
+  "old": "西侧办公模块房屋顶",
+  "frame": "L_MTN_A__Command_metal_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Barracks_A_metal_roof",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   -120.0,
+   195.0
+  ],
+  "top_z": 1903.9,
+  "width_m": 24.7,
+  "old": "生活区北排长条营房",
+  "frame": "L_MTN_A__Barracks_A_metal_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Barracks_B_metal_roof",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   -120.0,
+   220.0
+  ],
+  "top_z": 1903.9,
+  "width_m": 24.7,
+  "old": "生活区南排长条营房",
+  "frame": "L_MTN_A__Barracks_B_metal_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Mess_metal_roof",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   -120.0,
+   250.0
+  ],
+  "top_z": 1904.2,
+  "width_m": 26.7,
+  "old": "生活区食堂模块房屋顶",
+  "frame": "L_MTN_A__Mess_metal_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Stores_metal_roof",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   -90.0,
+   295.0
+  ],
+  "top_z": 1904.2,
+  "width_m": 22.7,
+  "old": "门区内侧物资库房屋顶",
+  "frame": "L_MTN_A__Stores_metal_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "Medical_metal_roof",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   -155.0,
+   295.0
+  ],
+  "top_z": 1903.8,
+  "width_m": 18.7,
+  "old": "西侧医疗模块房屋顶",
+  "frame": "L_MTN_A__Medical_metal_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "UP26_ABLUTIONS_pitched_roof",
+  "cls": "small_building",
+  "en": "the small pitched-roof building",
+  "zh": "小型坡屋顶房",
+  "center": [
+   -170.0,
+   224.0
+  ],
+  "top_z": 1904.53,
+  "width_m": 17.8,
+  "old": "生活区西缘的坡屋顶盥洗房",
+  "frame": "L_MTN_A__UP26_ABLUTIONS_pitched_roof.jpg"
+ },
+ {
+  "map": "L_MTN_A",
+  "key": "UP26_SIGNALS_pitched_roof",
+  "cls": "small_building",
+  "en": "the small pitched-roof building",
+  "zh": "小型坡屋顶房",
+  "center": [
+   -39.0,
+   92.0
+  ],
+  "top_z": 1904.53,
+  "width_m": 12.8,
+  "old": "通信塔附近的小型坡屋顶房",
+  "frame": "L_MTN_A__UP26_SIGNALS_pitched_roof.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_s_building_001_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   883.2,
+   -791.41
+  ],
+  "top_z": 59.98,
+  "width_m": 44.0,
+  "old": "南侧生活台地西南排长房",
+  "frame": "L_MTN_B__MTN_B_living_s_building_001_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_s_building_004_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1067.2,
+   -869.41
+  ],
+  "top_z": 59.98,
+  "width_m": 44.0,
+  "old": "南侧生活台地东北排长房",
+  "frame": "L_MTN_B__MTN_B_living_s_building_004_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_m_building_005_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   883.2,
+   -996.41
+  ],
+  "top_z": 62.98,
+  "width_m": 44.0,
+  "old": "中间生活台地西南排长房",
+  "frame": "L_MTN_B__MTN_B_living_m_building_005_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_m_building_008_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1067.2,
+   -1074.41
+  ],
+  "top_z": 62.98,
+  "width_m": 44.0,
+  "old": "中间生活台地东北排长房",
+  "frame": "L_MTN_B__MTN_B_living_m_building_008_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_n_building_009_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   883.2,
+   -1186.41
+  ],
+  "top_z": 66.98,
+  "width_m": 44.0,
+  "old": "北侧生活台地西南排长房",
+  "frame": "L_MTN_B__MTN_B_living_n_building_009_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_n_building_012_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1067.2,
+   -1264.41
+  ],
+  "top_z": 66.98,
+  "width_m": 44.0,
+  "old": "北侧生活台地东北排长房",
+  "frame": "L_MTN_B__MTN_B_living_n_building_012_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_building_013_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1105.2,
+   -831.41
+  ],
+  "top_z": 58.74,
+  "width_m": 38.0,
+  "old": "南生活台地东侧服务房",
+  "frame": "L_MTN_B__MTN_B_living_building_013_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_living_building_014_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   820.2,
+   -1036.41
+  ],
+  "top_z": 61.74,
+  "width_m": 38.0,
+  "old": "中生活台地西侧服务房",
+  "frame": "L_MTN_B__MTN_B_living_building_014_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_admin_building_019_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   875.2,
+   -1786.41
+  ],
+  "top_z": 85.58,
+  "width_m": 57.0,
+  "old": "办公台地西侧长建筑",
+  "frame": "L_MTN_B__MTN_B_admin_building_019_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_admin_building_020_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1070.2,
+   -1786.41
+  ],
+  "top_z": 85.58,
+  "width_m": 57.0,
+  "old": "办公台地东侧长建筑",
+  "frame": "L_MTN_B__MTN_B_admin_building_020_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_utility_building_033_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1870.2,
+   -2036.41
+  ],
+  "top_z": 88.18,
+  "width_m": 26.0,
+  "old": "公用设施台地西北角房屋",
+  "frame": "L_MTN_B__MTN_B_utility_building_033_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_repair_building_029_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   1900.2,
+   -881.41
+  ],
+  "top_z": 73.44,
+  "width_m": 66.0,
+  "old": "维修台地西南侧大库房",
+  "frame": "L_MTN_B__MTN_B_repair_building_029_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_repair_building_032_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   2110.2,
+   -1006.41
+  ],
+  "top_z": 71.06,
+  "width_m": 66.0,
+  "old": "维修台地东北侧大库房",
+  "frame": "L_MTN_B__MTN_B_repair_building_032_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_storage_building_021_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   1890.2,
+   -1316.41
+  ],
+  "top_z": 82.16,
+  "width_m": 82.0,
+  "old": "南仓储台地西南侧长库房",
+  "frame": "L_MTN_B__MTN_B_storage_building_021_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_storage_building_023_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   1890.2,
+   -1426.41
+  ],
+  "top_z": 82.16,
+  "width_m": 82.0,
+  "old": "南仓储台地西北侧长库房",
+  "frame": "L_MTN_B__MTN_B_storage_building_023_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_storage_building_024_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   2110.2,
+   -1426.41
+  ],
+  "top_z": 82.16,
+  "width_m": 82.0,
+  "old": "南仓储台地东北侧长库房",
+  "frame": "L_MTN_B__MTN_B_storage_building_024_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_storage_building_025_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   1890.2,
+   -1576.41
+  ],
+  "top_z": 88.16,
+  "width_m": 82.0,
+  "old": "北仓储台地西南侧长库房",
+  "frame": "L_MTN_B__MTN_B_storage_building_025_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_storage_building_028_geometry",
+  "cls": "warehouse",
+  "en": "the long grey warehouse",
+  "zh": "灰色长库房",
+  "center": [
+   2110.2,
+   -1686.41
+  ],
+  "top_z": 88.16,
+  "width_m": 82.0,
+  "old": "北仓储台地东北侧长库房",
+  "frame": "L_MTN_B__MTN_B_storage_building_028_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_bunded_fuel",
+  "cls": "fuel_yard",
+  "en": "the walled yard with two fuel tanks",
+  "zh": "有两个油罐的围堤场地",
+  "center": [
+   2090.0,
+   -1950.0
+  ],
+  "top_z": 84.0,
+  "width_m": 34.5,
+  "old": "公用设施台地东侧围堤储存区",
+  "frame": "L_MTN_B__MTN_B_bunded_fuel.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_south_concrete_bridge",
+  "cls": "bridge",
+  "en": "the concrete bridge over the river",
+  "zh": "跨河混凝土桥",
+  "center": [
+   1499.97,
+   -1100.0
+  ],
+  "top_z": 56.27,
+  "width_m": 110.1,
+  "old": "较南侧跨河混凝土桥",
+  "frame": "L_MTN_B__MTN_B_south_concrete_bridge.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_north_steel_bridge",
+  "cls": "bridge",
+  "en": "the steel bridge over the river",
+  "zh": "跨河钢桥",
+  "center": [
+   1500.02,
+   -2000.0
+  ],
+  "top_z": 76.27,
+  "width_m": 110.1,
+  "old": "较北侧跨河钢桥",
+  "frame": "L_MTN_B__MTN_B_north_steel_bridge.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_water_tank_0",
+  "cls": "tank",
+  "en": "the round domed tank",
+  "zh": "圆顶储罐",
+  "center": [
+   2015.0,
+   -1999.35
+  ],
+  "top_z": 90.8,
+  "width_m": 10.7,
+  "old": "公用设施台地的西侧圆筒水罐",
+  "frame": "L_MTN_B__MTN_B_water_tank_0.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_water_tank_1",
+  "cls": "tank",
+  "en": "the round domed tank",
+  "zh": "圆顶储罐",
+  "center": [
+   2045.0,
+   -1999.35
+  ],
+  "top_z": 90.8,
+  "width_m": 10.7,
+  "old": "公用设施台地东侧圆筒水罐",
+  "frame": "L_MTN_B__MTN_B_water_tank_1.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_security_checkpoint",
+  "cls": "gate",
+  "en": "the gate canopy over the road",
+  "zh": "横跨道路的门区顶棚",
+  "center": [
+   1340.0,
+   -388.0
+  ],
+  "top_z": 48.39,
+  "width_m": 21.0,
+  "old": "河谷入口道路中央门区设施",
+  "frame": "L_MTN_B__MTN_B_security_checkpoint.jpg"
+ },
+ {
+  "map": "L_MTN_B",
+  "key": "MTN_B_gate_building_039_geometry",
+  "cls": "small_building",
+  "en": "the small pitched-roof building",
+  "zh": "小型坡屋顶房",
+  "center": [
+   2225.2,
+   -2226.41
+  ],
+  "top_z": 87.2,
+  "width_m": 15.8,
+  "old": "东北侧道路口的西门房",
+  "frame": "L_MTN_B__MTN_B_gate_building_039_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_receiving_building_002_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   493.2,
+   -646.41
+  ],
+  "top_z": 49.46,
+  "width_m": 30.0,
+  "old": "低处接收台地西北侧建筑",
+  "frame": "L_MTN_D__MTN_D_receiving_building_002_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_receiving_building_003_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   592.2,
+   -650.41
+  ],
+  "top_z": 49.18,
+  "width_m": 32.0,
+  "old": "低处接收台地东北侧建筑",
+  "frame": "L_MTN_D__MTN_D_receiving_building_003_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_receiving_building_004_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   623.2,
+   -549.41
+  ],
+  "top_z": 53.04,
+  "width_m": 37.0,
+  "old": "低处接收台地东南侧大房屋",
+  "frame": "L_MTN_D__MTN_D_receiving_building_004_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_middle_building_005_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1070.2,
+   -1479.41
+  ],
+  "top_z": 108.18,
+  "width_m": 27.0,
+  "old": "中部台地西北侧房屋",
+  "frame": "L_MTN_D__MTN_D_middle_building_005_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_middle_building_006_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1220.2,
+   -1481.41
+  ],
+  "top_z": 110.2,
+  "width_m": 32.0,
+  "old": "中部台地东北侧房屋",
+  "frame": "L_MTN_D__MTN_D_middle_building_006_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_middle_building_007_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1080.2,
+   -1406.41
+  ],
+  "top_z": 106.9,
+  "width_m": 20.8,
+  "old": "中部台地西南侧小房屋",
+  "frame": "L_MTN_D__MTN_D_middle_building_007_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_upper_building_008_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1250.2,
+   -2076.41
+  ],
+  "top_z": 166.9,
+  "width_m": 22.0,
+  "old": "上层台地西北侧设备房",
+  "frame": "L_MTN_D__MTN_D_upper_building_008_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_upper_building_009_geometry",
+  "cls": "long_building",
+  "en": "the long green-grey building",
+  "zh": "灰绿色长条建筑",
+  "center": [
+   1340.2,
+   -2076.41
+  ],
+  "top_z": 168.64,
+  "width_m": 26.0,
+  "old": "上层台地东北侧设备房",
+  "frame": "L_MTN_D__MTN_D_upper_building_009_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_receiving_building_001_geometry",
+  "cls": "small_building",
+  "en": "the small pitched-roof building",
+  "zh": "小型坡屋顶房",
+  "center": [
+   470.2,
+   -548.41
+  ],
+  "top_z": 45.2,
+  "width_m": 15.8,
+  "old": "低处接收台地西南侧门房",
+  "frame": "L_MTN_D__MTN_D_receiving_building_001_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_east_building_010_geometry",
+  "cls": "small_building",
+  "en": "the small pitched-roof building",
+  "zh": "小型坡屋顶房",
+  "center": [
+   1820.2,
+   -1469.41
+  ],
+  "top_z": 105.2,
+  "width_m": 15.8,
+  "old": "东洞口外侧台地上的小房屋",
+  "frame": "L_MTN_D__MTN_D_east_building_010_geometry.jpg"
+ },
+ {
+  "map": "L_MTN_D",
+  "key": "MTN_D_security_checkpoint",
+  "cls": "gate",
+  "en": "the gate canopy over the road",
+  "zh": "横跨道路的门区顶棚",
+  "center": [
+   530.0,
+   -568.0
+  ],
+  "top_z": 45.7,
+  "width_m": 21.0,
+  "old": "接收台地南端的门区设施",
+  "frame": "L_MTN_D__MTN_D_security_checkpoint.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Village Shop",
+  "cls": "shop",
+  "en": "the white shop with a red-and-white striped awning",
+  "zh": "带红白条纹遮阳篷的白色商店",
+  "center": [
+   826.0,
+   -80.0
+  ],
+  "top_z": 17.9,
+  "width_m": 12,
+  "old": "White shop with a red-white striped awning facing the plaza",
+  "frame": "L_DES_A__Village_Shop.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Animal Pen",
+  "cls": "pen",
+  "en": "the wooden fenced animal pen",
+  "zh": "木栅动物围栏",
+  "center": [
+   678.0,
+   -46.0
+  ],
+  "top_z": 23.1,
+  "width_m": 26,
+  "old": "Wooden fenced pen with camels and hay bales west of the village",
+  "frame": "L_DES_A__Animal_Pen.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Roadside Fuel Station",
+  "cls": "fuel_station",
+  "en": "the small fuel station with a red-and-white canopy",
+  "zh": "带红白顶棚的小加油站",
+  "center": [
+   1284.3,
+   89.6
+  ],
+  "top_z": 19.6,
+  "width_m": 17,
+  "old": "Small fuel station with a white-red canopy on the main road east of the village",
+  "frame": "L_DES_A__Roadside_Fuel_Station.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Bedouin Camp",
+  "cls": "tent_camp",
+  "en": "the camp of three black tents",
+  "zh": "三顶黑帐篷的营地",
+  "center": [
+   740.7,
+   -432.4
+  ],
+  "top_z": 25.4,
+  "width_m": 30,
+  "old": "Three black tents, a campfire and resting camels on the sand plain north of the village",
+  "frame": "L_DES_A__Bedouin_Camp.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Old Ruins",
+  "cls": "ruins",
+  "en": "the square stone ruins",
+  "zh": "方形石砌遗迹",
+  "center": [
+   -876.5,
+   872.0
+  ],
+  "top_z": 44.4,
+  "width_m": 58,
+  "old": "Ancient stone enclosure with a column row and an arched gate in a dune valley",
+  "frame": "L_DES_A__Old_Ruins.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Landing Pad West",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   -1081.8,
+   604.2
+  ],
+  "top_z": 46.1,
+  "width_m": 27,
+  "old": "Concrete H pad with a windsock in the western dune valley",
+  "frame": "L_DES_A__Landing_Pad_West.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Landing Pad East",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   1284.2,
+   482.1
+  ],
+  "top_z": 21.2,
+  "width_m": 27,
+  "old": "Concrete H pad on the flat plain east of the village",
+  "frame": "L_DES_A__Landing_Pad_East.jpg"
+ },
+ {
+  "map": "L_DES_A",
+  "key": "Radio Mast",
+  "cls": "mast",
+  "en": "the red-and-white radio mast",
+  "zh": "红白无线电塔",
+  "center": [
+   718.0,
+   -18.0
+  ],
+  "top_z": 53.7,
+  "width_m": 13,
+  "old": "Red-white lattice radio mast with dishes at the south-west edge of the village",
+  "frame": "L_DES_A__Radio_Mast.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Research Camp",
+  "cls": "research_camp",
+  "en": "the camp of white containers and tents",
+  "zh": "白色集装箱和帐篷组成的营地",
+  "center": [
+   379.8,
+   -42.4
+  ],
+  "top_z": 53.8,
+  "width_m": 40,
+  "old": "Field research camp on the canyon floor: lab containers, mess tent, orange and yellow dome tents, solar panels and a weather mast",
+  "frame": "L_DES_B__Research_Camp.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Abandoned Waystation",
+  "cls": "waystation",
+  "en": "the roofless white building",
+  "zh": "无顶的白色建筑",
+  "center": [
+   -1150.6,
+   -510.3
+  ],
+  "top_z": 77.5,
+  "width_m": 28,
+  "old": "Roofless white waystation with a faded sign, rusted pump and wrecked cars beside the riverbed road",
+  "frame": "L_DES_B__Abandoned_Waystation.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Gauging Station",
+  "cls": "hut",
+  "en": "the small concrete hut",
+  "zh": "小混凝土房",
+  "center": [
+   150.7,
+   -404.3
+  ],
+  "top_z": 62.6,
+  "width_m": 13,
+  "old": "Concrete river-gauge hut with red-white staff boards on the dry channel bank",
+  "frame": "L_DES_B__Gauging_Station.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Hoodoo Garden",
+  "cls": "pillars",
+  "en": "the cluster of capped sandstone pillars",
+  "zh": "带顶盖的砂岩石柱群",
+  "center": [
+   851.4,
+   889.7
+  ],
+  "top_z": 250.9,
+  "width_m": 60,
+  "old": "Cluster of capped sandstone pillars on the south plateau near the viewpoint",
+  "frame": "L_DES_B__Hoodoo_Garden.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Landing Pad Camp",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   351.4,
+   70.0
+  ],
+  "top_z": 53.2,
+  "width_m": 27,
+  "old": "Concrete H pad on the canyon floor next to the research camp",
+  "frame": "L_DES_B__Landing_Pad_Camp.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Landing Pad Rim",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   1147.2,
+   933.3
+  ],
+  "top_z": 230.0,
+  "width_m": 27,
+  "old": "Concrete H pad on the south plateau behind the viewing shelter",
+  "frame": "L_DES_B__Landing_Pad_Rim.jpg"
+ },
+ {
+  "map": "L_DES_B",
+  "key": "Landing Pad North",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   87.5,
+   -893.1
+  ],
+  "top_z": 312.4,
+  "width_m": 27,
+  "old": "Concrete H pad on the north plateau near a weather station",
+  "frame": "L_DES_B__Landing_Pad_North.jpg"
+ },
+ {
+  "map": "L_DES_D",
+  "key": "Salt Works Ruins",
+  "cls": "sheds",
+  "en": "the sheds with orange roofs",
+  "zh": "橙色屋顶的棚屋",
+  "center": [
+   -973.2,
+   132.9
+  ],
+  "top_z": 16.4,
+  "width_m": 55,
+  "old": "Abandoned salt works: evaporation ponds, rusty sheds, white salt heaps, narrow-gauge rail with carts",
+  "frame": "L_DES_D__Salt_Works_Ruins.jpg"
+ },
+ {
+  "map": "L_DES_D",
+  "key": "Weather Station",
+  "cls": "station",
+  "en": "the fenced station with a tall mast",
+  "zh": "带高桅杆的围栏站点",
+  "center": [
+   987.4,
+   1042.7
+  ],
+  "top_z": 133.1,
+  "width_m": 43,
+  "old": "Fenced weather observation station with a mast, hut, solar panel and radio mast on the south-east fault slope",
+  "frame": "L_DES_D__Weather_Station.jpg"
+ },
+ {
+  "map": "L_DES_D",
+  "key": "Herders' Shacks",
+  "cls": "shacks",
+  "en": "the two corrugated shacks",
+  "zh": "两间铁皮棚屋",
+  "center": [
+   -836.8,
+   -652.7
+  ],
+  "top_z": 41.6,
+  "width_m": 30,
+  "old": "Two corrugated shacks with a camel pen on the north-west shore",
+  "frame": "L_DES_D__Herders__Shacks.jpg"
+ },
+ {
+  "map": "L_DES_D",
+  "key": "Landing Pad Salt Works",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   -1261.2,
+   114.9
+  ],
+  "top_z": 50.0,
+  "width_m": 27,
+  "old": "Concrete H pad by the salt works",
+  "frame": "L_DES_D__Landing_Pad_Salt_Works.jpg"
+ },
+ {
+  "map": "L_DES_D",
+  "key": "Landing Pad Station",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   1042.7,
+   1071.1
+  ],
+  "top_z": 125.8,
+  "width_m": 27,
+  "old": "Concrete H pad below the weather station",
+  "frame": "L_DES_D__Landing_Pad_Station.jpg"
+ },
+ {
+  "map": "L_DES_D",
+  "key": "Landing Pad North",
+  "cls": "helipad",
+  "en": "the round helipad",
+  "zh": "圆形停机坪",
+  "center": [
+   -354.7,
+   -832.7
+  ],
+  "top_z": 60.2,
+  "width_m": 27,
+  "old": "Concrete H pad on the northern alluvial fan",
+  "frame": "L_DES_D__Landing_Pad_North.jpg"
+ }
+]
