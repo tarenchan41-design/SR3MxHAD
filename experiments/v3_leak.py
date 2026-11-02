@@ -21,7 +21,8 @@ UE = Path("/mnt/e/UnrealProjects")
 ROOTS = {"L_MTN": UE / "mountain_base/military_mountains/Saved/VLNDataset/full-200", "L_DES": UE / "desert/Saved/VLNDataset/des-200"}
 FIT_MAPS = ("L_MTN_A", "L_MTN_D", "L_DES_A", "L_DES_D")
 EVAL_MAPS = ("L_MTN_B", "L_DES_B")
-DESIGNS = {"pursuit": Design(), "pursuit_kick": Design(kick_every=25.), "rotate_kick": Design(kick_every=25., rotate_first=True), "pursuit_kick_often": Design(kick_every=10.)}
+DESIGNS = {"pursuit": Design(), "pursuit_kick": Design(kick_every=25.), "rotate_kick": Design(kick_every=25., rotate_first=True), "pursuit_kick_often": Design(kick_every=10.),
+           "kick_start": Design(kick_every=25., start_kick_steps=3), "kick_start_relief": Design(kick_every=25., start_kick_steps=3, relief_share=.6)}
 WORDS = ("left", "ahead", "right")
 GRID_M = 4.
 COARSE_STEP = math.radians(15)
@@ -154,8 +155,11 @@ def heading_response(model, name, batch, device, rng, degrees):
     return {"median_deg": float(np.degrees(np.median(back))), "share_back": float((back > 0).mean()), "by_flown_m": bins}
 
 
-def fly(model, name, routes, device, rng, kick_deg=0., factor=1.5):
-    """Closed loop in the plane from each route's start. Reach: ever within 20 m, or 5 m; a route ends at its own budget."""
+def fly(model, name, routes, device, rng, kick_deg=0., factor=1.5, class_steps=None):
+    """Closed loop in the plane from each route's start. Reach: ever within 20 m, or 5 m; a route ends at its own budget.
+
+    class_stop: where a model that cannot see would stop, flying the training routes' median steps for this class of object.
+    """
     n = len(routes)
     start = np.array([r["positions"][0, :2] for r in routes])
     start_yaw = np.array([r["yaws"][0] for r in routes])
@@ -166,6 +170,8 @@ def fly(model, name, routes, device, rng, kick_deg=0., factor=1.5):
     pos, yaw = start.copy(), start_yaw + math.radians(kick_deg) * rng.choice((-1, 1), n)
     best = np.linalg.norm(pos - target, axis=1)
     at_expert = best.copy()
+    at_class = best.copy()
+    class_stop = np.array([(class_steps or {}).get(r.get("cls"), -1) for r in routes])
     alive = np.ones(n, dtype=bool)
     for t in range(int(budget.max())):
         alive = t < budget
@@ -176,7 +182,8 @@ def fly(model, name, routes, device, rng, kick_deg=0., factor=1.5):
         distance = np.linalg.norm(pos - target, axis=1)
         best = np.minimum(best, distance)
         at_expert = np.where(t + 1 == expert, distance, at_expert)
-    return {"reach20": float((best <= 20).mean()), "reach5": float((best <= 5).mean()), "at_expert_steps20": float((at_expert <= 20).mean()), "best_median_m": float(np.median(best))}
+        at_class = np.where(t + 1 == class_stop, distance, at_class)
+    return {"reach20": float((best <= 20).mean()), "reach5": float((best <= 5).mean()), "at_expert_steps20": float((at_expert <= 20).mean()), "best_median_m": float(np.median(best)), "class_stop20": float((at_class <= 20).mean()), "class_stop10": float((at_class <= 10).mean())}
 
 
 def v2_control(prepared, device):
@@ -207,7 +214,7 @@ def route_stats(routes, rejected):
     turn = [float(np.degrees(np.abs(r["actions"][:, 3]).sum())) for r in routes]
     return {"routes": len(routes), "rejected": rejected, "steps_median": float(np.median([len(r["actions"]) for r in routes])), "steps_total": int(sum(len(r["actions"]) for r in routes)), "distance_median": float(np.median([r["distance"] for r in routes])), "bearing_median": float(np.median(bearing)),
             "turn_median_deg": float(np.median(turn)), "relief_median_m": float(np.median([r["relief_m"] for r in routes])), "relief_p90_m": float(np.percentile([r["relief_m"] for r in routes], 90)), "follow_climb_median_m": float(np.median([r["climb_m"] for r in routes if r["mode"] == "follow"] or [0.])),
-            "follow": sum(r["mode"] == "follow" for r in routes), "words": {w: sum(r["word"] == w for r in routes) for w in WORDS}, "objects_used": len({r["object"] for r in routes}), "classes_used": len({r["cls"] for r in routes})}
+            "follow": sum(r["mode"] == "follow" for r in routes), "relief15": sum(r["relief_m"] >= 15 for r in routes), "words": {w: sum(r["word"] == w for r in routes) for w in WORDS}, "objects_used": len({r["object"] for r in routes}), "classes_used": len({r["cls"] for r in routes})}
 
 
 def test_design(name, design, objects, grounds, args, device):
@@ -222,11 +229,16 @@ def test_design(name, design, objects, grounds, args, device):
     for map_id in EVAL_MAPS:
         clean_routes.extend(generate([o for o in objects if o["map"] == map_id], grounds[map_id], args.eval_routes, clean, rng)[0])
     train, val, on_path = Batch(fit_routes), Batch(eval_routes), Batch(clean_routes)
+    classes = {}
+    for r in fit_routes:
+        classes.setdefault(r["cls"], []).append(len(r["actions"]))
+    class_steps = {c: int(np.median(v)) for c, v in classes.items()}
+    class_steps.update({r["cls"]: int(np.median([len(x["actions"]) for x in fit_routes])) for r in eval_routes if r["cls"] not in classes})
     report = {"design": dataclasses.asdict(design), "maps": stats, "models": {}}
     for model_name in FEATURES:
         x = features(model_name, train.pos, train.yaw, train.start, train.start_yaw, train.target, train.word, rng)
         model = fit(x, train.actions[:, 0], train.actions[:, 3], device, epochs=args.epochs)
-        row = {"closed": fly(model, model_name, eval_routes, device, rng), "closed_kick20": fly(model, model_name, eval_routes, device, rng, kick_deg=20.),
+        row = {"closed": fly(model, model_name, eval_routes, device, rng, class_steps=class_steps), "closed_kick20": fly(model, model_name, eval_routes, device, rng, kick_deg=20.),
                "offline_clean": agreement(on_path.actions[:, 3], predict(model, features(model_name, on_path.pos, on_path.yaw, on_path.start, on_path.start_yaw, on_path.target, on_path.word, rng), device)[1]),
                "response10": heading_response(model, model_name, on_path, device, rng, 10), "response20": heading_response(model, model_name, on_path, device, rng, 20)}
         report["models"][model_name] = row
@@ -244,11 +256,11 @@ def show(name, report):
     print(f"  {'map':8s} {'routes':>6s} {'steps':>6s} {'total':>6s} {'dist':>5s} {'turn':>5s} {'relief':>7s} {'p90':>5s} {'follow climb':>12s} {'objects':>7s} {'classes':>7s}  rejected")
     for map_id, s in report["maps"].items():
         print(f"  {map_id:8s} {s['routes']:6d} {s['steps_median']:6.0f} {s['steps_total']:6d} {s['distance_median']:5.0f} {s['turn_median_deg']:5.0f} {s['relief_median_m']:7.0f} {s['relief_p90_m']:5.0f} {s['follow_climb_median_m']:12.0f} {s['objects_used']:7d} {s['classes_used']:7d}  {dict(sorted(s['rejected'].items(), key=lambda x: -x[1])[:4])}")
-    print(f"  {'model':20s} {'reach20':>7s} {'kick20':>7s} {'reach5':>7s} {'stop@expert':>11s} {'best m':>7s} | {'corr':>6s} {'sign':>6s} {'yaw MAE':>7s} {'zero':>6s} | {'resp10':>7s} {'back':>5s} {'resp20':>7s} {'back':>5s} {'early 0-40m':>11s}")
+    print(f"  {'model':20s} {'reach20':>7s} {'kick20':>7s} {'reach5':>7s} {'stop@expert':>11s} {'cls stop20':>10s} {'stop10':>6s} {'best m':>7s} | {'corr':>6s} {'sign':>6s} {'yaw MAE':>7s} {'zero':>6s} | {'resp10':>7s} {'back':>5s} {'resp20':>7s} {'back':>5s} {'early 0-40m':>11s}")
     for model_name, m in report["models"].items():
         o, a, b = m["offline_clean"], m["response10"], m["response20"]
         early = a["by_flown_m"]["0-40"]
-        print(f"  {model_name:20s} {m['closed']['reach20']:7.2f} {m['closed_kick20']['reach20']:7.2f} {m['closed']['reach5']:7.2f} {m['closed']['at_expert_steps20']:11.2f} {m['closed']['best_median_m']:7.0f} | {o['corr']:6.2f} {o['sign']:6.2f} {o['yaw_mae']:7.2f} {o['zero_mae']:6.2f} | {a['median_deg']:7.2f} {a['share_back']:5.2f} {b['median_deg']:7.2f} {b['share_back']:5.2f} {early if early is None else round(early, 2):>11}")
+        print(f"  {model_name:20s} {m['closed']['reach20']:7.2f} {m['closed_kick20']['reach20']:7.2f} {m['closed']['reach5']:7.2f} {m['closed']['at_expert_steps20']:11.2f} {m['closed']['class_stop20']:10.2f} {m['closed']['class_stop10']:6.2f} {m['closed']['best_median_m']:7.0f} | {o['corr']:6.2f} {o['sign']:6.2f} {o['yaw_mae']:7.2f} {o['zero_mae']:6.2f} | {a['median_deg']:7.2f} {a['share_back']:5.2f} {b['median_deg']:7.2f} {b['share_back']:5.2f} {early if early is None else round(early, 2):>11}")
     print("  gates:", {k: ("pass" if v else "FAIL") for k, v in report["gates"].items()})
 
 

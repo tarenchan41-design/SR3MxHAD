@@ -26,7 +26,11 @@ HEIGHT = {"follow": ("Follow the terrain along the way.", "全程随沿途地形
 
 @dataclass(frozen=True)
 class Design:
-    """gain and max_yaw set the pursuit; kick_every > 0 injects offsets; rotate_first turns on the spot before flying."""
+    """gain and max_yaw set the pursuit; kick_every > 0 injects offsets; rotate_first turns on the spot before flying.
+
+    start_kick_steps > 0 always kicks the heading early, so that a turn so far says less about the turn to come.
+    relief_share of the routes must cross at least relief_min_m of ground relief, or the height question has nothing to measure.
+    """
     gain: float = .25
     max_yaw_deg: float = 5.
     kick_every: float = 0.
@@ -40,6 +44,9 @@ class Design:
     max_bearing_deg: float = 35.
     climb_limit_m: float = 2.
     budget_factor: float = 3.
+    start_kick_steps: int = 0
+    relief_share: float = 0.
+    relief_min_m: float = 15.
 
 
 def bearing_to(position, yaw, target):
@@ -95,6 +102,7 @@ def rollout(start, start_yaw, target, height_at, design, rng):
     positions, yaws, actions, kicks = [], [], [], []
     limit = int(design.budget_factor * math.hypot(target[0] - start[0], target[1] - start[1]) / STEP_M) + 20
     turning = design.rotate_first
+    early_kick = int(rng.integers(1, design.start_kick_steps + 1)) if design.start_kick_steps else None
     for t in range(limit):
         distance = math.hypot(target[0] - position[0], target[1] - position[1])
         positions.append(position.copy()); yaws.append(yaw)
@@ -109,7 +117,11 @@ def rollout(start, start_yaw, target, height_at, design, rng):
         actions.append((forward, 0., moved[2] - position[2], dyaw))
         next_position, next_yaw = integrate(tuple(position), yaw, actions[-1])
         position, yaw = np.array(next_position), float(next_yaw)
-        if design.kick_every > 0 and not turning and distance > design.kick_margin_m and rng.random() < 1 / design.kick_every:
+        if t + 1 == early_kick:
+            offset = math.radians(rng.uniform(*design.kick_heading_deg)) * rng.choice((-1, 1))
+            yaw = wrap(yaw + offset)
+            kicks.append({"step": t + 1, "kind": "heading", "value": offset})
+        elif design.kick_every > 0 and not turning and distance > design.kick_margin_m and rng.random() < 1 / design.kick_every:
             if rng.random() < .5:
                 offset = math.radians(rng.uniform(*design.kick_heading_deg)) * rng.choice((-1, 1))
                 yaw = wrap(yaw + offset)
@@ -178,9 +190,12 @@ def propose(obj, others, ground, design, rng):
         return None, "too close to the ground"
     if positions[-1, 2] < obj["top_z"] + ABOVE_TOP_M:
         return None, "ends below the target top"
+    relief = float(below.max() - below.min())
+    if design.relief_share and rng.random() < design.relief_share and relief < design.relief_min_m:
+        return None, "too flat"
     en, zh = instruction(obj, direction_word(bearing), mode, rng)
     return dict(map=obj["map"], object=obj["key"], cls=obj["cls"], mode=mode, agl=agl, distance=distance, bearing=bearing, word=direction_word(bearing), target=list(target), top_z=obj["top_z"], width_m=obj["width_m"],
-                positions=positions, yaws=yaws, actions=actions, kicks=kicks, relief_m=float(below.max() - below.min()), climb_m=float(positions[:, 2].max() - positions[:, 2].min()), instruction=en, instruction_zh=zh), None
+                positions=positions, yaws=yaws, actions=actions, kicks=kicks, relief_m=relief, climb_m=float(positions[:, 2].max() - positions[:, 2].min()), instruction=en, instruction_zh=zh), None
 
 
 def generate(objects, ground, count, design, rng, tries_per_route=60):

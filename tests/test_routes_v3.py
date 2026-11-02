@@ -117,3 +117,19 @@ def test_a_hold_route_cannot_end_below_the_target_top():
     rng = np.random.default_rng(0)
     results = [propose(tall, [tall], flat, Design(), rng) for _ in range(40)]
     assert all(route is None for route, _ in results)
+
+
+def test_start_kick_always_happens_early_and_arrival_still_works():
+    design = Design(start_kick_steps=3)
+    for seed in range(5):
+        positions, yaws, actions, kicks = rollout((0., 0., 30.), 0., (150., 40.), hold_height(30.), design, np.random.default_rng(seed))
+        assert len(kicks) == 1 and 1 <= kicks[0]["step"] <= 3 and kicks[0]["kind"] == "heading" and np.hypot(*(positions[-1, :2] - (150., 40.))) <= 1.
+
+
+def test_relief_rule_rejects_flat_routes_at_the_requested_share():
+    obj = building(center=(0., 0.))
+    routes, rejected = generate([obj], flat, 10, Design(relief_share=.6), np.random.default_rng(0))
+    assert rejected.get("too flat", 0) >= 5 and all(r["relief_m"] == 0 for r in routes)
+    none, reasons = generate([obj], flat, 5, Design(relief_share=1.), np.random.default_rng(0), tries_per_route=5)
+    assert none == [] and reasons["too flat"] > 0
+
