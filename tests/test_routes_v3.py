@@ -175,3 +175,22 @@ def test_b0_never_sees_the_pose():
     a = model(features, tokens, torch.zeros(2, 5))["action"]
     b = model(features, tokens, torch.randn(2, 5))["action"]
     assert torch.allclose(a, b)
+
+
+def test_pose_read_back_from_the_policy_state_and_the_reference_oracle_arrives():
+    from experiments.closed_loop_k import policy_state
+    from experiments.v3_fly import pose_from_state, reference_policy
+    start, start_yaw = np.array([10., -5., 40.]), .7
+    pos, yaw = np.array([60., 30., 44.]), 1.1
+    back, back_yaw = pose_from_state(policy_state(pos, yaw, start, start_yaw), start, start_yaw)
+    assert np.allclose(back, pos) and np.isclose(math.remainder(back_yaw - yaw, 2 * math.pi), 0)
+    positions, yaws, _, _ = rollout(tuple(start), start_yaw, (150., 80.), hold_height(40.), Design(), np.random.default_rng(0))
+    route = {"mode": "hold", "target": [150., 80.]}
+    policy = reference_policy("oracle", route, positions, yaws, flat)
+    p, y = positions[0].copy(), float(yaws[0])
+    for _ in range(400):
+        d = policy({}, policy_state(p, y, positions[0], float(yaws[0])))
+        if d["stop"]:
+            break
+        p, y = integrate(tuple(p), y, d["action"]); p = np.array(p)
+    assert d["stop"] and np.hypot(p[0] - 150., p[1] - 80.) <= 1.
