@@ -28,8 +28,9 @@ HEIGHT = {"follow": ("Follow the terrain along the way.", "全程随沿途地形
 class Design:
     """gain and max_yaw set the pursuit; kick_every > 0 injects offsets; rotate_first turns on the spot before flying.
 
-    start_kick_steps > 0 always kicks the heading early, so that a turn so far says less about the turn to come.
-    relief_share of the routes must cross at least relief_min_m of ground relief, or the height question has nothing to measure.
+    start_kicks heading kicks always land within the first start_kick_steps, so that a turn so far says less about the turn to come.
+    relief_share of a map's routes must cross at least relief_min_m of ground relief, or the height question has nothing to measure;
+    after relief_patience flat proposals in a row the map is taken to have no more, and the shortfall is reported.
     """
     gain: float = .25
     max_yaw_deg: float = 5.
@@ -45,8 +46,10 @@ class Design:
     climb_limit_m: float = 2.
     budget_factor: float = 3.
     start_kick_steps: int = 0
+    start_kicks: int = 1
     relief_share: float = 0.
     relief_min_m: float = 15.
+    relief_patience: int = 300
 
 
 def bearing_to(position, yaw, target):
@@ -102,7 +105,7 @@ def rollout(start, start_yaw, target, height_at, design, rng):
     positions, yaws, actions, kicks = [], [], [], []
     limit = int(design.budget_factor * math.hypot(target[0] - start[0], target[1] - start[1]) / STEP_M) + 20
     turning = design.rotate_first
-    early_kick = int(rng.integers(1, design.start_kick_steps + 1)) if design.start_kick_steps else None
+    early_kicks = set(rng.choice(np.arange(1, design.start_kick_steps + 1), design.start_kicks, replace=False).tolist()) if design.start_kick_steps else set()
     for t in range(limit):
         distance = math.hypot(target[0] - position[0], target[1] - position[1])
         positions.append(position.copy()); yaws.append(yaw)
@@ -117,7 +120,7 @@ def rollout(start, start_yaw, target, height_at, design, rng):
         actions.append((forward, 0., moved[2] - position[2], dyaw))
         next_position, next_yaw = integrate(tuple(position), yaw, actions[-1])
         position, yaw = np.array(next_position), float(next_yaw)
-        if t + 1 == early_kick:
+        if t + 1 in early_kicks:
             offset = math.radians(rng.uniform(*design.kick_heading_deg)) * rng.choice((-1, 1))
             yaw = wrap(yaw + offset)
             kicks.append({"step": t + 1, "kind": "heading", "value": offset})
@@ -152,7 +155,7 @@ def instruction(obj, word, mode, rng):
     return en[0].upper() + en[1:], FRAMES["zh"][frame].format(what=obj["zh"], where=WHERE[word][1], height=HEIGHT[mode][1])
 
 
-def propose(obj, others, ground, design, rng):
+def propose(obj, others, ground, design, rng, require_relief=False):
     """One route for this object, or (None, reason). Rules follow protocol section 13."""
     low, high = distance_range(obj["width_m"], design)
     if high < low:
@@ -191,7 +194,7 @@ def propose(obj, others, ground, design, rng):
     if positions[-1, 2] < obj["top_z"] + ABOVE_TOP_M:
         return None, "ends below the target top"
     relief = float(below.max() - below.min())
-    if design.relief_share and rng.random() < design.relief_share and relief < design.relief_min_m:
+    if require_relief and relief < design.relief_min_m:
         return None, "too flat"
     en, zh = instruction(obj, direction_word(bearing), mode, rng)
     return dict(map=obj["map"], object=obj["key"], cls=obj["cls"], mode=mode, agl=agl, distance=distance, bearing=bearing, word=direction_word(bearing), target=list(target), top_z=obj["top_z"], width_m=obj["width_m"],
@@ -202,15 +205,21 @@ def generate(objects, ground, count, design, rng, tries_per_route=60):
     """Objects are drawn evenly so a map's rare classes are not crowded out. Returns routes and the count of each rejection."""
     routes, rejected = [], {}
     order = list(rng.permutation(len(objects)))
-    i = 0
-    tries = 0
+    i = tries = hilly = flat_streak = 0
+    quota_open = design.relief_share > 0
     while len(routes) < count and tries < count * tries_per_route:
         obj = objects[order[i % len(order)]]
         i += 1
         tries += 1
-        route, reason = propose(obj, objects, ground, design, rng)
+        route, reason = propose(obj, objects, ground, design, rng, require_relief=quota_open and hilly < design.relief_share * (len(routes) + 1))
         if route is None:
             rejected[reason] = rejected.get(reason, 0) + 1
-        else:
-            routes.append(route)
+            flat_streak = flat_streak + 1 if reason == "too flat" else flat_streak
+            if flat_streak >= design.relief_patience:
+                quota_open = False
+                rejected["relief quota gave up at route"] = len(routes)
+            continue
+        routes.append(route)
+        flat_streak = 0
+        hilly += route["relief_m"] >= design.relief_min_m
     return routes, rejected

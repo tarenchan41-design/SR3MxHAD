@@ -22,7 +22,8 @@ ROOTS = {"L_MTN": UE / "mountain_base/military_mountains/Saved/VLNDataset/full-2
 FIT_MAPS = ("L_MTN_A", "L_MTN_D", "L_DES_A", "L_DES_D")
 EVAL_MAPS = ("L_MTN_B", "L_DES_B")
 DESIGNS = {"pursuit": Design(), "pursuit_kick": Design(kick_every=25.), "rotate_kick": Design(kick_every=25., rotate_first=True), "pursuit_kick_often": Design(kick_every=10.),
-           "kick_start": Design(kick_every=25., start_kick_steps=3), "kick_start_relief": Design(kick_every=25., start_kick_steps=3, relief_share=.6)}
+           "kick_start": Design(kick_every=25., start_kick_steps=3), "kick_start_relief": Design(kick_every=25., start_kick_steps=3, relief_share=.5),
+           "kick_start2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.)), "kick_start2_relief": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5)}
 WORDS = ("left", "ahead", "right")
 GRID_M = 4.
 COARSE_STEP = math.radians(15)

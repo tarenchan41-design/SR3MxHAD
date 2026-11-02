@@ -126,10 +126,16 @@ def test_start_kick_always_happens_early_and_arrival_still_works():
         assert len(kicks) == 1 and 1 <= kicks[0]["step"] <= 3 and kicks[0]["kind"] == "heading" and np.hypot(*(positions[-1, :2] - (150., 40.))) <= 1.
 
 
-def test_relief_rule_rejects_flat_routes_at_the_requested_share():
+def test_relief_quota_is_met_where_the_ground_allows_and_gives_up_where_it_does_not():
     obj = building(center=(0., 0.))
-    routes, rejected = generate([obj], flat, 10, Design(relief_share=.6), np.random.default_rng(0))
-    assert rejected.get("too flat", 0) >= 5 and all(r["relief_m"] == 0 for r in routes)
-    none, reasons = generate([obj], flat, 5, Design(relief_share=1.), np.random.default_rng(0), tries_per_route=5)
-    assert none == [] and reasons["too flat"] > 0
+    routes, rejected = generate([obj], flat, 10, Design(relief_share=.5, relief_patience=20), np.random.default_rng(0))
+    assert len(routes) == 10 and rejected["too flat"] >= 20 and "relief quota gave up at route" in rejected
+    wavy = lambda xy: 10 + 10 * np.sin(np.atleast_2d(xy)[:, 0] / 15.)
+    routes, rejected = generate([obj], wavy, 20, Design(relief_share=.5), np.random.default_rng(0))
+    assert sum(r["relief_m"] >= 15 for r in routes) >= 10 and "relief quota gave up at route" not in rejected
 
+
+def test_two_early_kicks_land_on_different_steps():
+    design = Design(start_kick_steps=6, start_kicks=2)
+    _, _, _, kicks = rollout((0., 0., 30.), 0., (200., 40.), hold_height(30.), design, np.random.default_rng(3))
+    assert len({k["step"] for k in kicks}) == 2 and all(k["step"] <= 6 for k in kicks)
