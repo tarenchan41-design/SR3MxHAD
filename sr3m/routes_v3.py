@@ -16,6 +16,8 @@ FRONT_HALF_DEG = 45.
 AHEAD_DEG = 12.
 SR_RADIUS_M = 20.
 PATCH_FACTOR = 8.  # 256 px focal length / 32 px patch: a target of width w fills one patch out to 8 w.
+PATCH_PX = 32.
+FOCAL_PX = 256.
 MIN_CLEARANCE_M = 10.
 ABOVE_TOP_M = 8.
 FRAMES = {"en": ("Fly to {what} {where} and stop directly above it. {height}", "{what} is {where}. Go there and stop right above it. {height}", "Your target is {what} {where}. Fly over to it and stop directly above it. {height}"),
@@ -65,6 +67,17 @@ def direction_word(bearing):
 def distance_range(width, design):
     """Empty when the object cannot fill a patch from the minimum distance."""
     return design.min_distance_m, min(PATCH_FACTOR * width, design.max_distance_m)
+
+
+def apparent_px(width, height, distance, drop):
+    """Side of the square with the same image area as the object, seen from distance metres away and drop metres above its base.
+
+    A flat object seen at a shallow angle is foreshortened: its image height is width * sin(elevation) plus its own height.
+    """
+    elevation = math.atan2(max(drop, 0.), distance)
+    across = FOCAL_PX * width / distance
+    up = FOCAL_PX * (width * math.sin(elevation) + height * math.cos(elevation)) / distance
+    return math.sqrt(across * up)
 
 
 def misses_when_flying_straight(distance, bearing):
@@ -177,6 +190,8 @@ def propose(obj, others, ground, design, rng, require_relief=False):
         return None, "below the target top"
     if abs(start[2] - obj["top_z"]) > distance:
         return None, "target outside the vertical view"
+    if apparent_px(obj["width_m"], obj["height_m"], distance, start[2] - (obj["top_z"] - obj["height_m"])) < PATCH_PX:
+        return None, "too small from the start"
     if not line_of_sight(start, target, obj["top_z"], ground):
         return None, "terrain blocks the view"
     if ambiguous(obj, others, start, yaw):

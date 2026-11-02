@@ -13,7 +13,7 @@ def flat(xy):
 
 
 def building(key="a", cls="long_building", center=(0., 0.), width=30.):
-    return dict(map="M", key=key, cls=cls, en="the long building", zh="长条建筑", center=list(center), top_z=8., width_m=width)
+    return dict(map="M", key=key, cls=cls, en="the long building", zh="长条建筑", center=list(center), top_z=8., height_m=8., width_m=width)
 
 
 def test_positive_bearing_is_to_the_right_in_the_same_sense_as_a_positive_dyaw():
@@ -139,3 +139,18 @@ def test_two_early_kicks_land_on_different_steps():
     design = Design(start_kick_steps=6, start_kicks=2)
     _, _, _, kicks = rollout((0., 0., 30.), 0., (200., 40.), hold_height(30.), design, np.random.default_rng(3))
     assert len({k["step"] for k in kicks}) == 2 and all(k["step"] <= 6 for k in kicks)
+
+
+def test_a_flat_object_far_away_looks_too_small_and_a_tall_one_does_not():
+    from sr3m.routes_v3 import apparent_px
+    # The reviewed helipad: 27 m wide, flat, 133 m away, 42 m below.
+    assert apparent_px(27., .5, 133., 42.) < 32 < apparent_px(27., .5, 60., 30.)
+    assert apparent_px(27., .5, 200., 25.) < apparent_px(27., 10., 200., 25.)
+    assert np.isclose(apparent_px(10., 10., 80., 0.), 256 * 10 / 80)
+
+
+def test_routes_to_flat_objects_start_closer():
+    pad = dict(building("pad", "helipad", width=27.), top_z=.5, height_m=.5)
+    routes, rejected = generate([pad], flat, 20, Design(), np.random.default_rng(0))
+    assert rejected.get("too small from the start", 0) > 0 and max(r["distance"] for r in routes) < 130
+
