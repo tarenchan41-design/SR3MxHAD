@@ -14,7 +14,8 @@ ENGINE = "E:/Program Files/EpicGame/UE_5.8/Engine/Binaries/Win64/UnrealEditor-Cm
 TOOLS = "E:/UnrealProjects/firstProject/Automation/ue_scripts"
 # The projects the dataset was captured in, by run-context profile. Loaded read-only: nothing here saves a package.
 PROJECTS = {"mountain_base": "E:/UnrealProjects/mountain_base/military_mountains/military_mountains.uproject",
-            "forests_new": "E:/UnrealProjects/forests_new/military_forests/military_forests.uproject"}
+            "forests_new": "E:/UnrealProjects/forests_new/military_forests/military_forests.uproject",
+            "desert": "E:/UnrealProjects/desert/desert.uproject"}
 SWEEP = {"interval_cm": 50., "radius_cm": 100.}  # The capture tool's collision check.
 MAX_UNEXPECTED_EXITS = 5
 

@@ -20,7 +20,9 @@ from had.vendor.policy_head import MultiHeadPolicy
 DINO = {"model": "facebook/dinov2-base", "revision": "f9e44c814b77203eaa57a6bdbbd535f21ede1415", "width": 768}
 FEATURE_DIM = 5 * DINO["width"]   # CLS + 2x2 average of the last-layer patch tokens
 # N (no image input) is a diagnostic: missing views are zero-filled exactly as for A and C.
-VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": ()}
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down")}
+# Variants that never see the pose: the state is zeroed in the model, so training and flight cannot differ.
+NO_POSE = {"B0"}
 
 
 @dataclass
@@ -117,6 +119,8 @@ class TerrainHAD(nn.Module):
             raise ValueError(f"{self.variant} requires exactly {self.views}")
         if state.ndim != 2 or state.shape[1] != 5:
             raise ValueError("Policy state must contain only initial-yaw-relative position/sin/cos")
+        if self.variant in NO_POSE:
+            state = torch.zeros_like(state)
         zero = state.new_zeros((len(state), self.config.visual_dim))
         encoded = {v: getattr(self, f"{v}_encoder").proj(x) for v, x in features.items()}
         text, _ = self.text_encoder(tokens)

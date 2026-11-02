@@ -11,7 +11,7 @@ import numpy as np
 
 PROJECT = Path(__file__).resolve().parents[1]
 
-PROTOCOL = {
+PROTOCOL_V2 = {
     "name": "sr3m_had_terrain_v2_dinov2", "index": "benchmark_split_v2", "language": "en",
     "terrain_categories": ["mountain", "desert"],
     "action_contract": "capture_adjacent_yaw_fru_m_rad_v1",
@@ -27,14 +27,19 @@ PROTOCOL = {
                   "max_epochs": 40, "min_epochs": 10, "patience": 5, "gradient_clip": 5.},
     "selection": "equal_normalized_route_macro_translation_turn_yaw_cohort_macro_terrain_dz",
 }
+# Dataset v3 pilot (protocol.md section 14). Chosen by SR3MXHAD_PROTOCOL=v3_pilot so every v2 artifact stays valid.
+PROTOCOL_V3_PILOT = {**PROTOCOL_V2, "name": "sr3m_had_v3_pilot", "index": "v3_pilot", "action_contract": "v3_pursuit_label_fru_m_rad",
+                     "stop_radius_m": 5., "seeds": [42]}
+PROTOCOLS = {"v2": PROTOCOL_V2, "v3_pilot": PROTOCOL_V3_PILOT}
+PROTOCOL = PROTOCOLS[os.environ.get("SR3MXHAD_PROTOCOL", "v2")]
 EXPECTED = {"train": 1028, "val_seen": 184, "val_unseen": 247, "test": 147}
 # Categories with terrain exports: AGL/slope labels, follow/control cohorts, H1/H2.
 TERRAIN = tuple(PROTOCOL["terrain_categories"])
 # Variants trained, reported and decided on. C keeps its PROTOCOL definition but is not run
 # (protocol.md §6); kept outside PROTOCOL so existing preparations and caches stay valid.
 MAIN_VARIANTS = ("A", "B")
-# Diagnostic variants defined outside PROTOCOL for the same reason. N: instruction + state only.
-DIAGNOSTIC_VARIANTS = {"N": []}
+# Diagnostic variants defined outside PROTOCOL for the same reason. N: instruction + state only. B0: B with the state zeroed.
+DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"]}
 
 
 def machine_paths():
@@ -114,7 +119,8 @@ class PreparedSplit:
         with np.load(self.directory / f"{split}.npz", allow_pickle=False) as z:
             self.arrays = {k: z[k] for k in z.files}
         self.n = len(self.arrays["state"])
-        if len(self.routes) != EXPECTED[split] or self.n != sum(r["count"] for r in self.routes):
+        expected = self.protocol.get("routes", EXPECTED)[split]
+        if len(self.routes) != expected or self.n != sum(r["count"] for r in self.routes):
             raise ValueError("Incomplete prepared split")
         self.route_index = np.repeat(np.arange(len(self.routes)), [r["count"] for r in self.routes])
 

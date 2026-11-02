@@ -19,8 +19,9 @@ G2 = {"position_m": .01, "yaw_deg": .01}
 DZ = 2
 
 
-def closed_routes(prepared):
-    return read_json(Path(prepared) / "closed_loop_routes.json")["routes"]
+def closed_routes(prepared, routes=None):
+    """The fixed closed-loop routes, or another list of val_seen routes (the desert G1 of protocol section 14)."""
+    return read_json(Path(routes) if routes else Path(prepared) / "closed_loop_routes.json")["routes"]
 
 
 def gate2(prepared):
@@ -49,7 +50,7 @@ def gate1_render(args):
     out = Path(args.out)
     rng = np.random.default_rng(0)
     manifest = []
-    routes = closed_routes(args.prepared)
+    routes = closed_routes(args.prepared, args.routes)
     for item in routes:
         episode = item["episode_id"]
         directory = out / episode.split("--")[-1]
@@ -161,6 +162,7 @@ if __name__ == "__main__":
     p.add_argument("--data-root", default="/mnt/f/WSL_ColdStorage/datasets/DatasetCaptureBatches/workbench")
     p.add_argument("--out", default="runs/closed_loop/k")
     p.add_argument("--device", default="cuda")
+    p.add_argument("--routes", help="g1-render: a JSON file with a routes list instead of closed_loop_routes.json")
     args = p.parse_args()
     if args.gate == "g2":
         result = gate2(args.prepared)

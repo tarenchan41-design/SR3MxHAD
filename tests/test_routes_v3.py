@@ -154,3 +154,24 @@ def test_routes_to_flat_objects_start_closer():
     routes, rejected = generate([pad], flat, 20, Design(), np.random.default_rng(0))
     assert rejected.get("too small from the start", 0) > 0 and max(r["distance"] for r in routes) < 130
 
+
+
+def test_sight_line_stops_short_of_the_target_and_splits_follow_rank():
+    from experiments.v3_capture import sight_end, split_of
+    end = sight_end((0., 0., 30.), (100., 0.), 10., 20.)
+    assert np.isclose(np.linalg.norm(end - np.array([100., 0., 10.])), 13.) and end[0] < 100.
+    assert [split_of("L_MTN_A", k) for k in range(10)].count("val") == 1 and split_of("L_MTN_B", 9) == "dev"
+
+
+def test_b0_never_sees_the_pose():
+    import torch
+    from had.model import NO_POSE, TerrainHAD
+    from had.tokenizer import Tokenizer
+    assert "B0" in NO_POSE
+    tok = Tokenizer.fit(["fly to the tank"], max_length=8)
+    model = TerrainHAD("B0", tok, cached_only=True).eval()
+    features = {v: torch.randn(2, 3840) for v in ("front", "down")}
+    tokens = torch.tensor([tok.encode("fly to the tank")["input_ids"]] * 2)
+    a = model(features, tokens, torch.zeros(2, 5))["action"]
+    b = model(features, tokens, torch.randn(2, 5))["action"]
+    assert torch.allclose(a, b)
