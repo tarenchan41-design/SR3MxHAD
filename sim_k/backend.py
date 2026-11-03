@@ -33,9 +33,15 @@ def powershell(command, **kwargs):
     return subprocess.run(["powershell.exe", "-NoProfile", "-Command", command], capture_output=True, text=True, **kwargs)
 
 
-def editors_running():
-    output = powershell("(Get-Process UnrealEditor* -ErrorAction SilentlyContinue | Measure-Object).Count", timeout=60).stdout
-    return int(next(line for line in output.splitlines() if line.strip().isdigit()))
+def editors_running(attempts=5):
+    """Number of Unreal editor processes. PowerShell from WSL now and then prints nothing; ask again before giving up."""
+    for attempt in range(attempts):
+        output = powershell("(Get-Process UnrealEditor* -ErrorAction SilentlyContinue | Measure-Object).Count", timeout=60).stdout
+        counts = [int(line) for line in output.splitlines() if line.strip().isdigit()]
+        if counts:
+            return counts[0]
+        time.sleep(5. * (attempt + 1))
+    raise RuntimeError(f"Could not count Unreal editor processes; PowerShell printed {output!r}")
 
 
 class UEBackend:

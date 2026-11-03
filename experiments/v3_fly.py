@@ -98,6 +98,19 @@ def fly_route(backend, route, positions, yaws, policy, ground):
             **{f"SR{int(r)}": bool(stopped and failure is None and horizontal <= r) for r in RADII}}
 
 
+def finite_or_none(obj, path="", found=None):
+    """JSON has no NaN: replace non-finite floats with None and list where they were (11/03: one B0 flight crashed the writer)."""
+    found = [] if found is None else found
+    if isinstance(obj, dict):
+        return {k: finite_or_none(v, f"{path}.{k}", found)[0] for k, v in obj.items()}, found
+    if isinstance(obj, list):
+        return [finite_or_none(v, f"{path}[{i}]", found)[0] for i, v in enumerate(obj)], found
+    if isinstance(obj, float) and not math.isfinite(obj):
+        found.append(path)
+        return None, found
+    return obj, found
+
+
 def fly(args):
     from sim_k.backend import UEBackend
     routes = dev_routes(args.prepared)
@@ -118,6 +131,10 @@ def fly(args):
                     policy, identity = reference_policy(args.name, route, positions, yaws, ground), {"variant": args.name}
                 result = fly_route(backend, route, positions, yaws, policy, ground)
                 result["identity"] = {k: identity[k] for k in identity if k != "tokenizer"}
+                result, nonfinite = finite_or_none(result)
+                if nonfinite:
+                    result["nonfinite_fields"] = nonfinite
+                    print("non-finite values set to null:", nonfinite[:5], len(nonfinite), flush=True)
                 write_json(out / f"{route['route_id']}.json", result)
                 print(args.name, route["route_id"], {k: result[k] for k in ("SR20", "SR10", "stopped", "failure", "steps")}, round(result["horizontal_m"], 1), flush=True)
 
