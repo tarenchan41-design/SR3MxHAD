@@ -82,7 +82,9 @@ def fly_route(backend, route, positions, yaws, policy, ground):
         hit = backend.sweep(position, target)
         below = backend.ground_z_m(target)
         agl = None if below is None else float(target[2] - below)
-        history.append({"step": t, "position_m": position.tolist(), "yaw_rad": yaw, "action": action.tolist(), "stop_probability": decision["stop_probability"], "agl_m": agl, "terrain_agl_m": float(target[2] - ground(target[None, :2])[0])})
+        terrain_agl = float(target[2] - ground(target[None, :2])[0])  # NaN once the drone leaves the cached terrain grid
+        history.append({"step": t, "position_m": position.tolist(), "yaw_rad": yaw, "action": action.tolist(), "stop_probability": decision["stop_probability"], "agl_m": agl,
+                        "terrain_agl_m": terrain_agl if math.isfinite(terrain_agl) else None})
         if hit["hit"]:
             failure = f"collision: {hit.get('actor')}"
             break
@@ -174,7 +176,7 @@ def report(args):
         by_map = {m: np.mean([v["SR20"] for v in values if v["route_id"].startswith(m)]) for m in sorted({v["route_id"][:7] for v in values})}
         tracking = []  # Follow routes: how far the height above the terrain drifts from where it started.
         for v in values:
-            agl = [h["terrain_agl_m"] for h in v["history"] if "terrain_agl_m" in h]
+            agl = [h["terrain_agl_m"] for h in v["history"] if h.get("terrain_agl_m") is not None]
             if routes[v["route_id"]]["mode"] == "follow" and agl:
                 tracking.append(float(np.median(np.abs(np.array(agl) - agl[0]))))
         summary[name] = {"n": len(values), **{f"SR{int(r)}": float(np.mean([v[f'SR{int(r)}'] for v in values])) for r in RADII}, "stopped": float(np.mean([v["stopped"] for v in values])),
