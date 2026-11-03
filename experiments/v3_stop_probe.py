@@ -108,7 +108,7 @@ def extract(args):
 
     objects = {o["key"]: o for o in json.load(open(args.objects, encoding="utf-8"))}
     dino = Dinov2Model.from_pretrained(DINO["model"], revision=DINO["revision"], local_files_only=True).to(args.device).eval().requires_grad_(False)
-    siglip = SiglipModel.from_pretrained(SIGLIP, local_files_only=True).to(args.device).eval().requires_grad_(False)
+    siglip = SiglipModel.from_pretrained(SIGLIP, local_files_only=True, torch_dtype=torch.float16).to(args.device).eval().requires_grad_(False)  # WSL has 5 GB RAM
     processor = AutoProcessor.from_pretrained(SIGLIP, local_files_only=True)
     dino_transform = image_transform()
 
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     p.add_argument("--cache", default=str(Path.home() / "sr3mxhad_runs/v3_pilot/features"))
     p.add_argument("--features", default=str(Path.home() / "sr3mxhad_runs/v3_pilot/stop_probe"))
     p.add_argument("--objects", default="configs/v3_objects.json"); p.add_argument("--device", default="cuda")
-    p.add_argument("--batch-size", type=int, default=32); p.add_argument("--workers", type=int, default=6)
+    p.add_argument("--batch-size", type=int, default=32); p.add_argument("--workers", type=int, default=2)
     p.add_argument("--out", default=None)
     args = p.parse_args()
     if PROTOCOL["name"] != "sr3m_had_v3_pilot":
