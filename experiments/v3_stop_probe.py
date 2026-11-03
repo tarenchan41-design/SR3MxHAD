@@ -206,6 +206,19 @@ def matrix(data, split, rows, parts, bow):
     return np.concatenate(blocks, 1)
 
 
+def standardize(x, chunk=2048):
+    """Column mean and std in row chunks, then scale x in place (WSL has 5 GB RAM; no full-size temporaries)."""
+    total, square = np.zeros(x.shape[1]), np.zeros(x.shape[1])
+    for i in range(0, len(x), chunk):
+        block = x[i:i + chunk].astype(np.float64)
+        total += block.sum(0); square += (block ** 2).sum(0)
+    mean = total / len(x)
+    std = np.maximum(np.sqrt(np.maximum(square / len(x) - mean ** 2, 0.)), 1e-6)
+    mean, std = mean.astype(np.float32), std.astype(np.float32)
+    x -= mean; x /= std
+    return mean, std
+
+
 def train_head(x, y, seed, device):
     import torch
     from torch import nn
@@ -247,13 +260,14 @@ def probe(args):
         fold = {"held_out": held, "fit_rows": int(len(rows["fit"])), "vocab": len(vocab), "variants": {}}
         for name, parts in VARIANTS.items():
             x_fit = matrix(data, "train", rows["fit"], parts, bow)
-            mean, std = x_fit.mean(0), np.maximum(x_fit.std(0), 1e-6)
-            x_fit = (x_fit - mean) / std
+            mean, std = standardize(x_fit)
             nets = [train_head(x_fit, data["train"]["stop"][rows["fit"]], seed, args.device) for seed in SEEDS]
             del x_fit
 
             def scored(split, idx):
-                return predict(nets, (matrix(data, split, idx, parts, bow) - mean) / std, args.device)
+                x = matrix(data, split, idx, parts, bow)
+                x -= mean; x /= std
+                return predict(nets, x, args.device)
 
             p_cal = scored("val_seen", rows["calib"])
             cal_routes = []

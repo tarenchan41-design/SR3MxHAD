@@ -32,3 +32,11 @@ def test_target_phrase_must_appear_in_the_instruction():
     objects = {"k": {"en": "the steel bridge over the river"}}
     route = {"route_id": "r", "object": "k", "instruction": "The steel bridge over the river is ahead on your right."}
     assert phrase_of(route, objects) == "steel bridge over the river"
+
+
+def test_chunked_standardization_matches_numpy():
+    from experiments.v3_stop_probe import standardize
+    x = np.random.default_rng(0).normal(3., 2., (5000, 7)).astype(np.float32)
+    expected = (x - x.mean(0)) / x.std(0)
+    standardize(x, chunk=333)
+    assert np.allclose(x, expected, atol=1e-4)
