@@ -4,6 +4,8 @@ Everything that affects pixels repeats UE5-VLN工具整合/ue_bridge/entry.py an
 rather than copied. Python blocks the game thread as the dataset capture did, which is why these images match it and
 why a GUI editor or PIE does not. Never saves a package.
 """
+import ctypes
+from ctypes import wintypes
 import json
 import os
 from pathlib import Path
@@ -28,6 +30,34 @@ def write_atomic(path, payload):
     temporary = path.with_name(path.name + ".tmp")
     temporary.write_text(json.dumps(payload), encoding="utf-8")
     os.replace(temporary, path)
+
+
+class _ProcessMemory(ctypes.Structure):
+    _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + [(n, ctypes.c_size_t) for n in (
+        "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage", "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+        "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage", "PrivateUsage")]
+
+
+class _Performance(ctypes.Structure):
+    _fields_ = [("cb", wintypes.DWORD)] + [(n, ctypes.c_size_t) for n in (
+        "CommitTotal", "CommitLimit", "CommitPeak", "PhysicalTotal", "PhysicalAvailable", "SystemCache", "KernelTotal", "KernelPaged",
+        "KernelNonpaged", "PageSize")] + [(n, wintypes.DWORD) for n in ("HandleCount", "ProcessCount", "ThreadCount")]
+
+
+def memory_now():
+    """This process's private bytes and working set, and the Windows commit charge, in bytes. Read only; no pixels change."""
+    psapi, kernel32 = ctypes.WinDLL("psapi"), ctypes.WinDLL("kernel32")
+    kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+    process = _ProcessMemory(cb=ctypes.sizeof(_ProcessMemory))
+    if not psapi.GetProcessMemoryInfo(wintypes.HANDLE(kernel32.GetCurrentProcess()), ctypes.byref(process), process.cb):
+        raise OSError("GetProcessMemoryInfo failed")
+    system = _Performance(cb=ctypes.sizeof(_Performance))
+    if not psapi.GetPerformanceInfo(ctypes.byref(system), system.cb):
+        raise OSError("GetPerformanceInfo failed")
+    page = system.PageSize
+    return {"private_bytes": process.PrivateUsage, "working_set_bytes": process.WorkingSetSize, "commit_total_bytes": system.CommitTotal * page,
+            "commit_limit_bytes": system.CommitLimit * page, "commit_percent": 100. * system.CommitTotal / system.CommitLimit,
+            "physical_available_bytes": system.PhysicalAvailable * page, "physical_total_bytes": system.PhysicalTotal * page}
 
 
 def load_map(package):
@@ -100,6 +130,21 @@ class Server:
         hit = unreal.SystemLibrary.line_trace_single(self.world, unreal.Vector(x, y, z + 200000.), unreal.Vector(x, y, z - 500000.),
                                                      unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False, [], unreal.DrawDebugTrace.NONE, True)
         return {"ground_z_cm": float(hit.to_tuple()[5].z) if hit is not None else None}
+
+    def memory(self):
+        return memory_now()
+
+    def collect_garbage(self):
+        """UObject garbage collection between renders (optional restart policy). Returns the time it took."""
+        started = time.monotonic()
+        unreal.SystemLibrary.collect_garbage()
+        return {"seconds": time.monotonic() - started}
+
+    def console(self, command):
+        """One console command on the loaded world, for the streaming clean-up experiments. Does not change project settings."""
+        started = time.monotonic()
+        unreal.SystemLibrary.execute_console_command(self.world, command)
+        return {"seconds": time.monotonic() - started}
 
     def close(self):
         rig, self.rig = self.rig, None
