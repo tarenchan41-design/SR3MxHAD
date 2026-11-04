@@ -120,11 +120,13 @@ def vlm_manifest(args):
     root, lines = Path(args.root), []
     for split in base.SPLITS:
         ds = PreparedSplit(args.prepared, split)
+        distance = base.horizontal_to_target(ds)
         for i in range(ds.n):
             route = ds.routes[int(ds.route_index[i])]
             phrase = base.phrase_of(route, objects)
             image = Path(ds.payload(i, ("down",), root)["images"]["down"]).relative_to(root)
-            lines.append({"split": split, "row": i, "image": image.as_posix(), "phrase": phrase, "question": VLM_QUESTION.format(phrase)})
+            lines.append({"split": split, "row": i, "route_id": route["route_id"], "distance_m": round(float(distance[i]), 2),
+                          "image": image.as_posix(), "phrase": phrase, "question": VLM_QUESTION.format(phrase)})
     out = Path(args.vlm_dir)
     out.mkdir(parents=True, exist_ok=True)
     with open(out / "manifest.jsonl", "w", encoding="utf-8") as f:

@@ -35,12 +35,18 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--manifest", required=True); p.add_argument("--root", required=True, help="dataset root the manifest paths are relative to")
     p.add_argument("--out", required=True); p.add_argument("--model", default="Qwen/Qwen3-VL-8B-Instruct")
-    p.add_argument("--batch-size", type=int, default=16); p.add_argument("--limit", type=int, default=None, help="smoke test on the first N frames")
+    p.add_argument("--batch-size", type=int, default=16)
+    p.add_argument("--smoke", type=int, default=None, help="smoke test: N frames within 10 m of the target and N beyond 60 m; prints both means, writes nothing")
     args = p.parse_args()
 
     lines = [json.loads(s) for s in open(args.manifest, encoding="utf-8")]
-    if args.limit:
-        lines = lines[:args.limit]
+    if args.smoke:
+        rng = np.random.default_rng(0)
+        near = [i for i, line in enumerate(lines) if line["distance_m"] <= 10]
+        far = [i for i, line in enumerate(lines) if line["distance_m"] >= 60]
+        picked = list(rng.choice(near, args.smoke, replace=False)) + list(rng.choice(far, args.smoke, replace=False))
+        lines = [lines[i] for i in picked]
+    args.limit = args.smoke
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
     model = AutoModelForImageTextToText.from_pretrained(args.model, torch_dtype=torch.bfloat16, device_map="cuda").eval()
     processor = AutoProcessor.from_pretrained(args.model)
@@ -76,6 +82,14 @@ def main():
             print(f"{done}/{len(lines)}, {rate:.1f} frames/s, mean P(yes) so far {np.nanmean(scores[:done]):.3f}", flush=True)
     if not np.isfinite(scores).all():
         raise SystemExit("Some frames have no score")
+    if args.smoke:
+        n = args.smoke
+        print(f"smoke test: mean P(yes) within 10 m {scores[:n].mean():.3f}, beyond 60 m {scores[n:].mean():.3f}; "
+              f"share > 0.5: {np.mean(scores[:n] > .5):.2f} vs {np.mean(scores[n:] > .5):.2f}; "
+              f"{2 * n / (time.monotonic() - started):.1f} frames/s", flush=True)
+        for line, s in list(zip(lines, scores))[:3] + list(zip(lines, scores))[n:n + 3]:
+            print(f"  {line['distance_m']:7.1f} m  P(yes) {s:.3f}  {line['question']}", flush=True)
+        return
     for split in ("train", "val_seen"):
         rows = [(line["row"], s) for line, s in zip(lines, scores) if line["split"] == split]
         if not rows:
