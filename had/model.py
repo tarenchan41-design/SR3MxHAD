@@ -20,7 +20,14 @@ from had.vendor.policy_head import MultiHeadPolicy
 DINO = {"model": "facebook/dinov2-base", "revision": "f9e44c814b77203eaa57a6bdbbd535f21ede1415", "width": 768}
 FEATURE_DIM = 5 * DINO["width"]   # CLS + 2x2 average of the last-layer patch tokens
 # N (no image input) is a diagnostic: missing views are zero-filled exactly as for A and C.
-VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down")}
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down"), "B4": ("front", "down")}
+# Patch grid per view where it is not 2x2. B4 (protocol.md section 16): B with the down view pooled on a 4x4 grid.
+GRIDS = {"B4": {"down": 4}}
+
+
+def feature_dim(grid=2):
+    """CLS plus a grid x grid average of the patch tokens."""
+    return (1 + grid * grid) * DINO["width"]
 # Variants that never see the pose: the state is zeroed in the model, so training and flight cannot differ.
 NO_POSE = {"B0"}
 
@@ -53,12 +60,12 @@ def image_transform():
                                transforms.ToTensor(), transforms.Normalize([.485, .456, .406], [.229, .224, .225])])
 
 
-def pooled_tokens(hidden):
-    """(b, 1 + h*w, d) last-layer tokens -> (b, 5d): CLS, then the 2x2 average of the patch grid (row-major)."""
+def pooled_tokens(hidden, grid=2):
+    """(b, 1 + h*w, d) last-layer tokens -> (b, (1 + grid^2) d): CLS, then the grid x grid average of the patch grid (row-major)."""
     patches = hidden[:, 1:]; side = int(round(patches.shape[1] ** .5))
     if side * side != patches.shape[1]:
         raise ValueError("Patch tokens do not form a square grid")
-    grid = F.adaptive_avg_pool2d(patches.transpose(1, 2).reshape(len(hidden), -1, side, side), 2)
+    grid = F.adaptive_avg_pool2d(patches.transpose(1, 2).reshape(len(hidden), -1, side, side), grid)
     return torch.cat([hidden[:, 0], grid.flatten(2).transpose(1, 2).flatten(1)], 1)
 
 
@@ -75,15 +82,15 @@ class DinoFeatures(nn.Module):
         super().train(mode); self.net.eval()
         return self
 
-    def forward(self, images):
-        return pooled_tokens(self.net(pixel_values=images).last_hidden_state)
+    def forward(self, images, grid=2):
+        return pooled_tokens(self.net(pixel_values=images).last_hidden_state, grid)
 
 
 class ViewProjection(nn.Module):
     """HAD VisualEncoder.proj with the DINOv2 feature as input."""
-    def __init__(self, output_dim):
+    def __init__(self, output_dim, input_dim=FEATURE_DIM):
         super().__init__()
-        self.proj = nn.Sequential(nn.Linear(FEATURE_DIM, output_dim), nn.LayerNorm(output_dim), nn.ReLU(inplace=True))
+        self.proj = nn.Sequential(nn.Linear(input_dim, output_dim), nn.LayerNorm(output_dim), nn.ReLU(inplace=True))
 
 
 class TerrainHAD(nn.Module):
@@ -94,8 +101,9 @@ class TerrainHAD(nn.Module):
             raise ValueError(f"Variant must be one of {sorted(VARIANTS)}")
         self.config = c = SMALL if small else HadDims()
         self.tokenizer = tokenizer
-        self.front_encoder = ViewProjection(c.visual_dim)
-        self.down_encoder = ViewProjection(c.visual_dim)
+        self.grids = {v: GRIDS.get(variant, {}).get(v, 2) for v in ("front", "down")}
+        self.front_encoder = ViewProjection(c.visual_dim, feature_dim(self.grids["front"]))
+        self.down_encoder = ViewProjection(c.visual_dim, feature_dim(self.grids["down"]))
         self.text_encoder = TextEncoder(vocab_size=tokenizer.vocab_size, embedding_dim=c.text_embedding_dim,
                                         hidden_dim=c.text_hidden_dim, num_layers=c.text_layers, bidirectional=True,
                                         dropout=c.dropout, encoder_type="lstm", max_len=tokenizer.max_length)
@@ -136,7 +144,7 @@ class TerrainHAD(nn.Module):
         if set(images) != set(self.views):
             raise ValueError("Unexpected image views")
         with torch.no_grad():
-            features = {v: self.backbone(x) for v, x in images.items()}
+            features = {v: self.backbone(x) if self.grids[v] == 2 else self.backbone(x, grid=self.grids[v]) for v, x in images.items()}
         return self(features, tokens, state)
 
     def head_state(self):

@@ -143,7 +143,7 @@ def probe(args):
     """Same pairs as recovery_probe: offsets at 25/50/75 % of each dev route; the turn back toward the route, per model."""
     from sim_k.backend import UEBackend
     routes = dev_routes(args.prepared)
-    out = Path(args.out) / "probe"
+    out = Path(args.out) / args.probe_dir
     out.mkdir(parents=True, exist_ok=True)
     checkpoints = dict(item.split("=") for item in args.models)
     for map_id in sorted({r["route_id"][:7] for r, _, _ in routes}):
@@ -182,7 +182,7 @@ def report(args):
     flights = Path(args.out)
     routes = {r["route_id"]: r for r, _, _ in dev_routes(args.prepared)}
     results = {}
-    for folder in sorted(p for p in flights.iterdir() if p.is_dir() and p.name != "probe"):
+    for folder in sorted(p for p in flights.iterdir() if p.is_dir() and not p.name.startswith("probe")):
         rows = [read_json(f) for f in sorted(folder.glob("*.json"))]
         if rows:
             results[folder.name] = {r["route_id"]: r for r in rows}
@@ -201,16 +201,16 @@ def report(args):
                          "follow_agl_drift_median_m": float(np.median(tracking)) if tracking else None}
         s = summary[name]
         print(f"{name:10s} {s['n']:3d} {s['SR20']:5.2f} {s['SR10']:5.2f} {s['SR5']:5.2f} {s['stopped']:7.2f} {s['failures']:4d} {s['ne_median_m']:6.1f} | {' '.join(f'{m[2:]} {x:.2f}' for m, x in by_map.items())} | {s['follow_agl_drift_median_m']}")
-    gates = {}
-    if "B" in results:
-        gates["1 B SR20 >= 0.5"] = summary["B"]["SR20"] >= GATE_SR20
+    gates, g = {}, args.gated  # the gated model: B (section 14) or B4 (section 16)
+    if g in results:
+        gates[f"1 {g} SR20 >= 0.5"] = summary[g]["SR20"] >= GATE_SR20
         if "N" in results:
-            common = sorted(set(results["B"]) & set(results["N"]))
-            diff = bootstrap_difference([results["B"][k]["SR20"] for k in common], [results["N"][k]["SR20"] for k in common])
-            summary["B_minus_N_SR20"] = diff
-            gates["2 B - N SR20 >= 0.2"] = diff[0] >= GATE_MARGIN
-            print(f"B - N SR20 {diff[0]:+.2f} CI [{diff[1]:+.2f}, {diff[2]:+.2f}] over {len(common)} routes")
-    probe_dir = flights / "probe"
+            common = sorted(set(results[g]) & set(results["N"]))
+            diff = bootstrap_difference([results[g][k]["SR20"] for k in common], [results["N"][k]["SR20"] for k in common])
+            summary[f"{g}_minus_N_SR20"] = diff
+            gates[f"2 {g} - N SR20 >= 0.2"] = diff[0] >= GATE_MARGIN
+            print(f"{g} - N SR20 {diff[0]:+.2f} CI [{diff[1]:+.2f}, {diff[2]:+.2f}] over {len(common)} routes")
+    probe_dir = flights / args.probe_dir
     if probe_dir.exists():
         rows = [read_json(f) for f in sorted(probe_dir.glob("*.json"))]
         names = list(rows[0]["models"]) if rows else []
@@ -224,11 +224,11 @@ def report(args):
                         by.setdefault((kind, magnitude), []).append(turn_back(found[1][name], found[-1][name]))
             summary["probe"][name] = {f"{k}_{m:.3g}": {"median_deg": float(np.degrees(np.median(v))), "share_back": float((np.array(v) > 0).mean()), "needed_deg": float(np.degrees(required(k, m)))} for (k, m), v in by.items()}
             print(f"probe {name}: " + "; ".join(f"{k} {math.degrees(m) if k == 'heading' else m:.0f}: {np.degrees(np.median(v)):+.2f} deg/step, back {np.mean(np.array(v) > 0):.2f}" for (k, m), v in by.items()))
-        if "B" in summary["probe"]:
-            gates["3 B heading response > 0"] = all(summary["probe"]["B"][f"heading_{m:.3g}"]["median_deg"] > 0 for k, m in OFFSETS if k == "heading")
+        if g in summary["probe"]:
+            gates[f"3 {g} heading response > 0"] = all(summary["probe"][g][f"heading_{m:.3g}"]["median_deg"] > 0 for k, m in OFFSETS if k == "heading")
     summary["gates"] = gates
     print("gates:", {k: "pass" if v else "FAIL" for k, v in gates.items()})
-    write_json(flights / "summary.json", summary)
+    write_json(flights / args.summary, summary)
 
 
 if __name__ == "__main__":
@@ -238,5 +238,7 @@ if __name__ == "__main__":
     p.add_argument("--out", default="runs/v3_pilot/flights"); p.add_argument("--cache", default=str(Path.home() / "sr3mxhad_runs/v3/ground"))
     p.add_argument("--name"); p.add_argument("--checkpoint"); p.add_argument("--models", nargs="+", default=[], help="probe: name=checkpoint ...")
     p.add_argument("--device", default="cuda"); p.add_argument("--restart-every", type=int, default=32)
+    p.add_argument("--probe-dir", default="probe"); p.add_argument("--gated", default="B", help="report: the model the gates are read on")
+    p.add_argument("--summary", default="summary.json")
     args = p.parse_args()
     {"fly": fly, "probe": probe, "report": report}[args.stage](args)

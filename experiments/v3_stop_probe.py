@@ -173,6 +173,23 @@ def extract(args):
         write_json(Path(args.out) / "meta.json", meta)
 
 
+def grid4_cache(args):
+    """Feature cache for B4 (section 16): the front view of the B cache and the down view CLS + 4x4 grid extracted here, as symlinks."""
+    from had.model import feature_dim
+    for split in SPLITS:
+        source, grid, out = Path(args.cache) / split, Path(args.features) / split, Path(args.grid4_cache) / split
+        meta = read_json(source / "cache.json")
+        if not (grid / "done.json").exists() or read_json(grid / "done.json")["rows"] != meta["rows"]:
+            raise ValueError(f"{split}: the 4x4 down features are missing or do not match the cache")
+        out.mkdir(parents=True, exist_ok=True)
+        for name, target in (("front.npy", source / "front.npy"), ("down.npy", grid / "dino_grid.npy")):
+            if not (out / name).exists():
+                (out / name).symlink_to(target)
+        write_json(out / "cache.json", {**meta, "feature": {"front": meta["feature"], "down": "last_layer_cls_plus_4x4_patch_mean"},
+                                        "feature_dims": {"front": feature_dim(2), "down": feature_dim(4)}, "sources": {"front": str(source), "down": str(grid)}})
+        print(split, "B4 cache", out, flush=True)
+
+
 def load(args):
     data = {}
     meta = read_json(Path(args.features) / "meta.json")
@@ -315,7 +332,8 @@ def probe(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("stage", choices=("extract", "probe"))
+    p.add_argument("stage", choices=("extract", "probe", "grid4-cache"))
+    p.add_argument("--grid4-cache", default=str(Path.home() / "sr3mxhad_runs/v3_pilot/features_grid4"))
     p.add_argument("--prepared", default="runs/v3_pilot/prepared"); p.add_argument("--root", default="/mnt/f/WSL_ColdStorage/datasets/sr3m_v3_pilot")
     p.add_argument("--cache", default=str(Path.home() / "sr3mxhad_runs/v3_pilot/features"))
     p.add_argument("--features", default=str(Path.home() / "sr3mxhad_runs/v3_pilot/stop_probe"))
@@ -328,6 +346,8 @@ if __name__ == "__main__":
     if args.stage == "extract":
         args.out = args.out or args.features
         extract(args)
+    elif args.stage == "grid4-cache":
+        grid4_cache(args)
     else:
         args.out = args.out or "runs/v3_pilot/model_check/stop_probe.json"
         probe(args)

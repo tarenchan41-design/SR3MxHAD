@@ -40,3 +40,27 @@ def test_chunked_standardization_matches_numpy():
     expected = (x - x.mean(0)) / x.std(0)
     standardize(x, chunk=333)
     assert np.allclose(x, expected, atol=1e-4)
+
+
+def test_b4_pools_the_down_view_on_a_4x4_grid_and_leaves_other_variants_unchanged():
+    import torch
+    from had.model import FEATURE_DIM, TerrainHAD, feature_dim, pooled_tokens
+    from had.tokenizer import Tokenizer
+    hidden = torch.arange(1 + 64, dtype=torch.float32).reshape(1, 65, 1)  # CLS 0, then an 8x8 grid valued 1..64 row-major
+    out = pooled_tokens(hidden, 4)[0]
+    assert out.shape == (17,) and out[0] == 0 and out[1] == (1 + 2 + 9 + 10) / 4 and out[16] == (55 + 56 + 63 + 64) / 4
+    assert torch.equal(pooled_tokens(hidden), pooled_tokens(hidden, 2))
+    tok = Tokenizer.fit(["fly to the tank"], max_length=8)
+    b4, b = TerrainHAD("B4", tok, cached_only=True), TerrainHAD("B", tok, cached_only=True)
+    assert b4.down_encoder.proj[0].in_features == feature_dim(4) == 13056 and b4.front_encoder.proj[0].in_features == FEATURE_DIM
+    assert b.down_encoder.proj[0].in_features == FEATURE_DIM
+    calls = []
+
+    class Fake(torch.nn.Module):
+        def forward(self, x, grid=2):
+            calls.append(grid)
+            return torch.zeros(len(x), feature_dim(grid))
+    b4.backbone = Fake()
+    tokens = torch.tensor([tok.encode("fly to the tank")["input_ids"]])
+    b4.eval().from_images({"front": torch.zeros(1, 3, 8, 8), "down": torch.zeros(1, 3, 8, 8)}, tokens, torch.zeros(1, 5))
+    assert sorted(calls) == [2, 4]

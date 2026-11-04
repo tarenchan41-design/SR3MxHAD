@@ -10,7 +10,7 @@ import time
 import numpy as np
 import torch
 from experiments.protocol import DIAGNOSTIC_VARIANTS, MAIN_VARIANTS, PROTOCOL, TERRAIN, PreparedSplit, code_version, read_features, read_json, write_json
-from had.model import TerrainHAD
+from had.model import GRIDS, TerrainHAD, feature_dim
 from had.tokenizer import Tokenizer
 from experiments.metrics import calibrate_stop, evaluate
 
@@ -193,7 +193,11 @@ def train(args):
     torch.set_num_threads(4)
     args.code_version = code_version()
     data = {s: PreparedSplit(args.prepared, s) for s in ("train", "val_seen")}
-    features = {s: read_features(args.cache, s, ds)[0] for s, ds in data.items()}
+    widths = {tuple(feature_dim(GRIDS.get(v, {}).get(view, 2)) for view in ("front", "down")) for v in args.variants}
+    if len(widths) != 1:
+        raise ValueError("Variants trained together must read features of the same widths")
+    widths = dict(zip(("front", "down"), widths.pop()))
+    features = {s: read_features(args.cache, s, ds, widths)[0] for s, ds in data.items()}
     tokenizer = Tokenizer.load(Path(args.prepared) / "tokenizer.json")
     tokens = {s: token_rows(ds, tokenizer) for s, ds in data.items()}
     statistics = read_json(Path(args.prepared) / "statistics.json")
