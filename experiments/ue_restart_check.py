@@ -209,8 +209,10 @@ def consistency(args):
             warmup = curve_poses(map_id, WARMUP, 7)
             policy = MemoryPolicy(**json.loads(args.policy))
             backend = UEBackend(out / "session", profile, map_package, capture, policy=policy)
-        else:
+        elif args.group == "ref":
             backend = UEBackend(out / "session", profile, map_package, capture, restart_every=32)
+        else:  # a candidate setting (SR3MXHAD_K_CONSOLE) in one process per map, the same per-route order as ref
+            backend = UEBackend(out / "session", profile, map_package, capture, restart_every=10 ** 9)
         log = []
         with backend:
             for route_id, t, position, yaw in warmup:
@@ -222,7 +224,7 @@ def consistency(args):
                     (out / route_id).mkdir(exist_ok=True)
                     image.save(out / route_id / f"step_{t:06d}_{view}.png")
                 log.append({"route_id": route_id, "step": t, "render": backend.renders, "since_start": backend.since_start, "process": backend.starts, "seconds": time.monotonic() - t0})
-        write_json(out / "done.json", {"group": args.group, "policy": args.policy if args.group == "test" else "restart_every=32", "warmup": len(warmup), "poses": log,
+        write_json(out / "done.json", {"group": args.group, "policy": args.policy if args.group == "test" else "restart_every=32", "console": backend.console, "warmup": len(warmup), "poses": log,
                                        "processes": backend.starts, "unexpected_exits": backend.unexpected_exits, "memory": getattr(backend, "memory_log", [])})
         print(map_id, args.group, "processes", backend.starts, "since_start min", min(p["since_start"] for p in log), "exits", backend.unexpected_exits, flush=True)
 
@@ -250,7 +252,7 @@ def report(args):
         model.load_head_state(saved["head"])
         models[variant] = (model, tokenizer)
     sources = {"ref": lambda m, r, t, v: Path(args.out) / "consistency_ref" / m / r / f"step_{t:06d}_{v}.png",
-               "test": lambda m, r, t, v: Path(args.out) / "consistency_test" / m / r / f"step_{t:06d}_{v}.png",
+               "test": lambda m, r, t, v: Path(args.out) / f"consistency_{args.test_group}" / m / r / f"step_{t:06d}_{v}.png",
                "dataset": lambda m, r, t, v: ROOT / "routes" / m / r / f"step_{t:06d}" / f"{v}_rgb.png"}
     pairs = [("ref", "test"), ("dataset", "ref"), ("dataset", "test")]
     action, dz = {}, 2
@@ -304,7 +306,7 @@ def report(args):
         if "test" in (a, b):  # where in its UE process each test pose was rendered
             since = {}
             for m in MAPS:
-                for pose in read_json(Path(args.out) / "consistency_test" / m / "done.json")["poses"]:
+                for pose in read_json(Path(args.out) / f"consistency_{args.test_group}" / m / "done.json")["poses"]:
                     since[pose["route_id"], pose["step"]] = pose["since_start"]
             depth = np.array([since[k] for k in order])
             entry["test_since_start"] = {"min": int(depth.min()), "median": float(np.median(depth)), "max": int(depth.max())}
@@ -313,7 +315,7 @@ def report(args):
         entry["passed"] = bool(entry["median_abs_dz_change_m"]["B"] < .024 and abs(entry["gap_change_m"]) < .024)
         result["pairs"][f"{a}-{b}"] = entry
         print(f"{a}-{b}", json.dumps({k: entry[k] for k in ("passed", "median_abs_dz_change_m", "p90_abs_dz_change_m", "gap_change_m", "median_abs_yaw_change_deg", "mae", "cosine_min")}), flush=True)
-    write_json(Path(args.out) / "consistency.json", result)
+    write_json(Path(args.out) / ("consistency.json" if args.test_group == "test" else f"consistency_{args.test_group}.json"), result)
 
 
 def throughput(args):
@@ -358,7 +360,7 @@ if __name__ == "__main__":
     p.add_argument("--name", default="baseline"); p.add_argument("--renders", type=int, default=400); p.add_argument("--seed", type=int, default=3)
     p.add_argument("--stop-commit", type=float, default=85.); p.add_argument("--order", choices=("shuffled", "same", "sequential"), default="shuffled")
     p.add_argument("--gc", action="store_true"); p.add_argument("--console", nargs="*", default=[]); p.add_argument("--every", type=int, default=0)
-    p.add_argument("--group", choices=("ref", "test", "old", "new"))
+    p.add_argument("--group", choices=("ref", "test", "old", "new", "vsmoff")); p.add_argument("--test-group", default="test", help="report: the group compared with ref")
     p.add_argument("--policy", default="{}", help="MemoryPolicy fields as JSON")
     p.add_argument("--models", default="/mnt/e/DL/Transformers/Projects/SR3MxHAD/runs/v3_pilot/models"); p.add_argument("--device", default="cuda")
     args = p.parse_args()

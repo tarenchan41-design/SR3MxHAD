@@ -80,6 +80,12 @@ def policy_from_environment():
     return None if value is None else MemoryPolicy(**json.loads(value or "{}"))
 
 
+def console_from_environment():
+    """SR3MXHAD_K_CONSOLE='["r.Shadow.Virtual.Enable 0"]': console commands the server runs after loading the map, before any capture. Unset: none."""
+    value = os.environ.get("SR3MXHAD_K_CONSOLE")
+    return [] if not value else [str(c) for c in json.loads(value)]
+
+
 class UEBackend:
     """render/sweep/ground in world metres and radians. Restarts the editor before its memory runs out.
 
@@ -87,12 +93,13 @@ class UEBackend:
     follows the policy instead and restart_every is ignored.
     """
 
-    def __init__(self, session, profile, map_package, capture, restart_every=32, keep_images=False, start_timeout=420., policy=None):
+    def __init__(self, session, profile, map_package, capture, restart_every=32, keep_images=False, start_timeout=420., policy=None, console=None):
         if profile not in PROJECTS:
             raise ValueError(f"No project known for profile {profile}")
         self.session, self.profile, self.map_package = Path(session), profile, map_package
         self.capture, self.restart_every, self.keep_images, self.start_timeout = capture, restart_every, keep_images, start_timeout
         self.policy = policy if policy is not None else policy_from_environment()
+        self.console = list(console) if console is not None else console_from_environment()  # changes pixels; off by default
         self.process, self.number, self.renders, self.since_start, self.starts, self.unexpected_exits = None, 0, 0, 0, 0, 0
         self.memory, self.memory_log = None, []
         self.images = self.session / "images"
@@ -116,6 +123,8 @@ class UEBackend:
         config = {"tools_dir": TOOLS, "map_package": self.map_package, "capture": self.capture, "idle_exit_s": 300.}
         if self.policy is not None:
             config["memory_policy"] = asdict(self.policy)  # Only recorded; the server does not read it.
+        if self.console:
+            config["console"] = self.console
         (attempt / "config.json").write_text(json.dumps(config), encoding="utf-8")
         arguments = [PROJECTS[self.profile], "-Unattended", "-NoSound", "-NoSplash", "-NoSourceControl", "-RenderOffscreen", "-AllowCommandletRendering", "-stdout", "-FullStdOutLogOutput",
                      "-ExecutePythonScript=" + windows_path(ROOT / "sim_k/ue_server.py"), "-KSession=" + windows_path(attempt), "-AbsLog=" + windows_path(attempt / "Unreal.log")]

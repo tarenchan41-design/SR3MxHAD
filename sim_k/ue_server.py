@@ -80,6 +80,8 @@ class Server:
     def __init__(self):
         self.capture = CONFIG["capture"]
         self.world = load_map(CONFIG["map_package"])
+        for command in CONFIG.get("console", []):  # optional, before the rig exists; e.g. r.Shadow.Virtual.Enable 0 (changes pixels)
+            unreal.SystemLibrary.execute_console_command(self.world, command)
         core._finish_loading_before_screenshot("k-map-loaded")
         actors = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
         self.rig = core.CaptureRig(self.world, actors, {"bias": self.capture["exposure_bias"]}, tuple(self.capture["resolution"]))

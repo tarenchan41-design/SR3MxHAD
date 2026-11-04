@@ -108,3 +108,13 @@ def test_server_only_adds_operations():
     source = (Path(k.__file__).parent / "ue_server.py").read_text(encoding="utf-8")
     for name in ("def memory(self)", "def collect_garbage(self)", "def console(self, command)", "def render(self, position_cm, yaw_deg, directory, name)"):
         assert name in source
+
+
+def test_startup_console_is_off_unless_asked(monkeypatch):
+    from sim_k.backend import UEBackend, console_from_environment
+    monkeypatch.delenv("SR3MXHAD_K_CONSOLE", raising=False)
+    assert console_from_environment() == []
+    backend = UEBackend("/tmp/k-test-session", next(iter(__import__("sim_k.backend", fromlist=["PROJECTS"]).PROJECTS)), "/Game/Map", {})
+    assert backend.console == []
+    monkeypatch.setenv("SR3MXHAD_K_CONSOLE", '["r.Shadow.Virtual.Enable 0"]')
+    assert console_from_environment() == ["r.Shadow.Virtual.Enable 0"]
