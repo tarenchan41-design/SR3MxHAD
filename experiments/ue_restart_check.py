@@ -95,6 +95,7 @@ def curve(args):
     out = Path(args.out) / f"curve_{args.map}_{args.name}"
     out.mkdir(parents=True, exist_ok=True)
     profile, map_package, capture = capture_of(args.map)
+    capture = {**capture, **json.loads(args.capture_override)}  # e.g. {"persistent_state": false}; changes pixels, see --keep-images
     poses = curve_poses(args.map, args.renders, args.seed)
     if args.order == "same":  # diagnostic: one pose again and again, so nothing new comes into view
         poses = [poses[0]] * args.renders
@@ -103,20 +104,30 @@ def curve(args):
         poses = [(route_id, t, p, y) for route_id in rest for t, (p, y) in enumerate(zip(route_file(args.map, route_id)["positions"], route_file(args.map, route_id)["yaws"]))][:args.renders]
     rows, render_seconds, gc_seconds, stopped = [], [], [], None
     started = time.monotonic()
-    with UEBackend(out / "session", profile, map_package, capture, restart_every=10 ** 9) as backend:
+    with UEBackend(out / "session", profile, map_package, capture, restart_every=10 ** 9, keep_images=bool(args.keep_images)) as backend:
         backend.start()
         ready = time.monotonic() - started
+        for command in args.startup_console:  # set before the first capture, e.g. r.RDG.TransientAllocator 0
+            backend.call("console", command=command)
+        kept = []
         rows.append(sample(backend, {"render_s_mean8": None, "cleanup_s": None}))
         print(json.dumps(rows[-1]), flush=True)
         for i, (route_id, t, position, yaw) in enumerate(poses):
             t0 = time.monotonic()
-            backend.render(np.array(position), float(yaw))
+            images = backend.render(np.array(position), float(yaw))
             render_seconds.append(time.monotonic() - t0)
+            if i < args.keep_images:
+                kept.append({"route_id": route_id, "step": t, "render": backend.renders - 1, "files": {v: str(backend.images / f"render_{backend.renders - 1:06d}_{v}.png") for v in images}})
+            if backend.since_start in args.dump_at:  # resource dumps go to the session's Unreal.log
+                for command in ("r.DumpRenderTargetPoolMemory", "rhi.DumpMemory", "rhi.DumpResourceMemory"):
+                    backend.call("console", command=command)
             cleanup = None
             if args.every and backend.since_start % args.every == 0:
                 t1 = time.monotonic()
                 if args.gc:
                     backend.call("collect_garbage")
+                if args.barrier:
+                    backend.call("barrier")
                 for command in args.console:
                     backend.call("console", command=command)
                 cleanup = time.monotonic() - t1
@@ -141,8 +152,32 @@ def curve(args):
                "render_s_last32_median": float(np.median(render_seconds[-32:])), "cleanup_s_median": float(np.median(gc_seconds)) if gc_seconds else None,
                "private_gb_ready": private[0], "private_gb_end": private[-1], "commit_percent_ready": rows[0]["commit_percent"], "commit_percent_end": rows[-1]["commit_percent"],
                "unexpected_exits": exits, "processes": processes, "routes": len({p[0] for p in poses[:renders]}), "order": args.order}
+    if args.keep_images:
+        write_json(out / "kept.json", kept)
+    summary.update(capture_override=json.loads(args.capture_override), startup_console=args.startup_console, barrier=args.barrier,
+                   private_mb_per_render=1024 * (private[-1] - private[0]) / max(renders, 1),
+                   gpu_mib_per_render_first40=next(((r["gpu_used_mib"] - rows[0]["gpu_used_mib"]) / r["renders"] for r in rows if r["renders"] >= 40 and r["gpu_used_mib"] and rows[0]["gpu_used_mib"]), None))
     write_json(out / "summary.json", summary)
     print(json.dumps(summary), flush=True)
+
+
+def pixels(args):
+    """Kept renders of a curve run against the dataset images at the same poses: MAE per view (0-255), for whether a change moves pixels."""
+    from PIL import Image
+    kept = read_json(Path(args.out) / f"curve_{args.map}_{args.name}" / "kept.json")
+    rows = []
+    for k in kept:
+        folder = ROOT / "routes" / args.map / k["route_id"] / f"step_{k['step']:06d}"
+        row = {"route_id": k["route_id"], "step": k["step"], "render": k["render"]}
+        for view, path in k["files"].items():
+            a = np.asarray(Image.open(path).convert("RGB"), dtype=np.float32)
+            b = np.asarray(Image.open(folder / f"{view}_rgb.png").convert("RGB"), dtype=np.float32)
+            row[f"{view}_mae"] = float(np.abs(a - b).mean())
+        rows.append(row)
+    out = {"map": args.map, "name": args.name, "n": len(rows), **{f"{v}_mae_median": float(np.median([r[f'{v}_mae'] for r in rows])) for v in ("front", "down")},
+           **{f"{v}_mae_max": float(np.max([r[f'{v}_mae'] for r in rows])) for v in ("front", "down")}, "rows": rows}
+    write_json(Path(args.out) / f"curve_{args.map}_{args.name}" / "pixels.json", out)
+    print(json.dumps({k: v for k, v in out.items() if k != "rows"}), flush=True)
 
 
 def consistency_poses(map_id):
@@ -315,7 +350,9 @@ def throughput(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("stage", choices=("curve", "consistency", "report", "throughput"))
+    p.add_argument("stage", choices=("curve", "consistency", "report", "throughput", "pixels"))
+    p.add_argument("--capture-override", default="{}"); p.add_argument("--startup-console", nargs="*", default=[]); p.add_argument("--barrier", action="store_true")
+    p.add_argument("--keep-images", type=int, default=0, help="curve: keep the first N renders for the pixels stage"); p.add_argument("--dump-at", nargs="*", type=int, default=[])
     p.add_argument("--out", default="/mnt/e/DL/Transformers/Projects/SR3MxHAD/runs/infra/ue_restart")
     p.add_argument("--map", choices=MAPS); p.add_argument("--maps", nargs="+", default=list(MAPS), choices=MAPS)
     p.add_argument("--name", default="baseline"); p.add_argument("--renders", type=int, default=400); p.add_argument("--seed", type=int, default=3)
@@ -325,4 +362,4 @@ if __name__ == "__main__":
     p.add_argument("--policy", default="{}", help="MemoryPolicy fields as JSON")
     p.add_argument("--models", default="/mnt/e/DL/Transformers/Projects/SR3MxHAD/runs/v3_pilot/models"); p.add_argument("--device", default="cuda")
     args = p.parse_args()
-    {"curve": curve, "consistency": consistency, "report": report, "throughput": throughput}[args.stage](args)
+    {"curve": curve, "consistency": consistency, "report": report, "throughput": throughput, "pixels": pixels}[args.stage](args)

@@ -146,6 +146,10 @@ class Server:
         unreal.SystemLibrary.execute_console_command(self.world, command)
         return {"seconds": time.monotonic() - started}
 
+    def barrier(self):
+        """The render-readiness barrier the capture tool uses at prime (flushes loading, streaming and rendering); for the leak experiments."""
+        return {"seconds": core._finish_loading_before_screenshot("k-barrier")}
+
     def close(self):
         rig, self.rig = self.rig, None
         if rig:
