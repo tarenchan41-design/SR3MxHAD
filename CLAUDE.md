@@ -70,6 +70,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 - 11/03 查模型（我选了"特征 + 文本，留一图探针"，protocol.md §15，`runs/v3_pilot/model_check/results.md`）：4 张训练图轮流留出一张，测 STOP 探针。**俯视 CLS + 4×4 网格通过**（首次触发在 20 m 内 28.7% → 50.0%，+21 个百分点，CI [17, 26]，4 折都提升）；SigLIP 文本和图文相似度没有帮助（+1，CI 跨 0）。空间粒度是 STOP 的主要瓶颈，文本不是。下一步待我决定：是否用 4×4 俯视特征重训 B、在开发图上再飞一次（第二次查看开发图）。UE 重启优化子 agent 按我的意思放在晚上跑。
 - 11/03 晚上我同意用 4×4 俯视重训 B（B4，定义在 `PROTOCOL` 之外，同 N/B0；规格 protocol.md §16，`cfbcc5d`），门槛沿用 §14，第二次查看开发图。顺序：先由子 agent 跑 UE 重启优化（brief 在 `runs/infra/ue_restart/brief.md`，worktree 分支 `infra/ue-restart`，不合并），结束后跑 `runs/v3/b4_run.sh`（训练 → 开发图飞行 → 探针 → `runs/v3_pilot/flights/summary_B4.json`）。
 - 11/04 B4（俯视 4×4 重训 B，§16，第二次查看开发图）：门槛 1 **仍不过**（SR20 38.3%，B 是 41.7%），2、3 过；B4−B −3（CI [−15, 8]），探针的 +21 没有转化到闭环。按类别拆：见过的类别 B4 0.53 / B 0.42，没见过的 0.32 / 0.41；开发图 2/3 的目标是训练中没有的类别（23 类只有 5 类跨图）。下一步待我决定：阶段 2 让类别跨图重复（数据设计）和/或把"未见类别 STOP"写成发现；生成器补"起点/路径旁不放同类物体"。后续沿用 B。报告在 `runs/v3_pilot/model_check/results.md`。
+- 11/04 K 渲染泄露查明（`runs/infra/ue_restart/leak_report.md`，分支 `infra/ue-restart`，未合并）：显存泄露来自虚拟阴影贴图（VSM，引擎从不结束一帧，页表一直叠加）。关 VSM（`r.Shadow.Virtual.Enable 0`）后 desert 一个进程渲染 400 次显存不涨、快 2.5 倍，mountain 快 1.6 倍（还剩每次约 113 MB 的系统内存泄露）。G1 过（B |Δdz| 0.09 cm），但阴影外观变了。是否从阶段 2 起采用待我决定（采集和闭环必须同一设置）。
 - 10/28 逐路线分析（`runs/terrain_v2_dino/decision/per_route.md`，论文图 `fig_paper/`，val_unseen 已冻结报告，仅描述）：俯视相对增益不随坡度变（中位 13–17%），绝对增益随坡度变大（2.4→4.7→7.6 cm）；大幅负增益只在平缓路线；低空收益最大（mountain 低空 27%），高空小（desert 高空 4 条 −1%）——事后假设，需在新测试集上预注册才能写成结论。
 
 ## 6. 暂缓的探索路线
