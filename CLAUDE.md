@@ -30,12 +30,15 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
   - 关卡：`/Game/Mountain/Maps/L_MTR_A–D`、`/Game/Desert/Maps/L_DES_A–D_v3`。v2 的 `L_DES_A–D` 也在其中，不改。
   - 地面是静态网格 `Terrain_*`（complex-as-simple 碰撞），没有 Landscape。
   - Blender 源文件在 `E:\blender3dProjects\{mountain,desert}`，目标表在各图的 `scene_config(_v3).json`。
-- **渲染设置**：exposure_bias −10（v2 desert 实际采集值），512×512，FOV 90°。阶段 2 起关 VSM：`SR3MXHAD_K_CONSOLE='["r.Shadow.Virtual.Enable 0"]'`，采集和闭环都要设置，默认不开。
+- **渲染设置**：exposure_bias −10（v2 desert 实际采集值），512×512，FOV 90°。
+  - 阶段 2 的控制台命令：关 VSM，加阴影偏移（11/05，protocol §17.5），代码里是 `experiments.v3_ue_check.STAGE2_CONSOLE`。
+  - K 闭环要设 `SR3MXHAD_K_CONSOLE='["r.Shadow.Virtual.Enable 0","r.Shadow.CSMDepthBias 20","r.Shadow.CSMSlopeScaleDepthBias 4.5"]'`，采集和闭环必须一致，默认不开。
 - **数据**：位置在 `configs/paths.toml`（不进 Git，样例 `paths.example.toml`）。
   - v2 发布划分：`<data_root>/benchmark_split_v2`（v1 只读保留）。
   - v3 试点（阶段 1）：`/mnt/f/WSL_ColdStorage/datasets/sr3m_v3_pilot`。
+  - v3 阶段 2：`/mnt/f/WSL_ColdStorage/datasets/sr3m_v3`（`experiments/v3s2_capture.py` 写入，带一份 `plan.json`）。
 - **实验产物（不进 Git）**：
-  - v3：`runs/v3/`（阶段 0、导入核对 `ue_check/`）、`runs/v3_pilot/`（阶段 1 结果、`model_check/`）。
+  - v3：`runs/v3/`（试点阶段 0、导入核对 `ue_check/`）、`runs/v3/stage2/`（阶段 2 的阶段 0、路线计划、`g1/`、`shadow/`）、`runs/v3_pilot/`（阶段 1 结果、`model_check/`）。
   - v2：`runs/terrain_v2_dino/`（DINOv2 主结果）、`runs/terrain_v2/`（ResNet 与诊断）、`runs/closed_loop/`（v2 闭环）、`runs/data_audit/`（v2 数据审计）。
 - **代码结构**见 README；`sr3m/` 不得 import `had`/`experiments`，`had/` 不得 import `experiments`（有测试守护）。`had/vendor/` 是 HAD@f01440a 逐字节副本，不改。
 
@@ -59,10 +62,17 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
 
 - [x] §18 STOP 探针第二轮：五个变体都没过，STOP 沿用 V1（俯视 4×4、硬标签）。见 `runs/v3_pilot/model_check/results.md`。
 - [x] 8 张新图建好并导入 UE，核对全部通过（`runs/v3/ue_check/check.md`）。
-- [ ] **阶段 0**：地面高度模型、阶段 2 物体表、生成器规则 8/9、路线计划、G0-1 至 G0-7、G0-5 人工核对。
-- [ ] G1 + 预览检查 → 批量渲染 → 准备数据、训练（5090）→ 开发图（≤ 3 次）→ 测试图（一次）。目标 11 月底。
+- [x] **阶段 0**：G0-1、G0-4、G0-6、G0-7 过；G0-2、G0-3 未过，已放行；G0-5 过。见 `runs/v3/stage2/stage0_report.md`。
+  - 物体表 `configs/v3s2_objects.json`；设计 `kick_start2_relief_s2b`；计划 `runs/v3/stage2/plan.json`（1,000 条路线，62,177 个位姿）。
+- [x] G1 与预览检查：8 张图都过，见 `runs/v3/stage2/g1/report.md`。
+- [ ] **批量渲染**（11/05 开始，约 10–12 小时）→ 准备数据（`PROTOCOL=v3` 待写）、训练（5090）→ 开发图（≤ 3 次）→ 测试图（一次）。目标 11 月底。
 
-**11/05 决定**：指令里的目标称呼带位置描述（protocol §17.2）。
+**11/05 决定**（protocol §17.4、§17.5）：
+- 每个目标轮流分配路线；规模不变，看数据量曲线再决定是否扩。
+- 称呼一半用"外观 + 位置"，一半只用外观。
+- 指令里不用东南西北：模型只知道相对起飞点的位姿。
+- 同名目标不改。
+- 阴影偏移 20 / 4.5。
 
 **已确立的结论（详细见各文件）**：
 
