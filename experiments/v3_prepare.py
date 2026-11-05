@@ -1,8 +1,10 @@
-"""Dataset v3 pilot: rendered routes -> the compact prepared layout train.py and cache.py read (protocol section 14).
+"""Dataset v3: rendered routes -> the compact prepared layout train.py and cache.py read (protocol sections 14 and 17).
 
-Run with SR3MXHAD_PROTOCOL=v3_pilot. Splits: train and val_seen (the 1-in-10 val routes of the training maps) for fitting and
-selection; dev (L_MTN_B, L_DES_B) only for the closed-loop gates. Labels are the pursuit actions stored with each route; where no
-offset was injected they must equal the pose difference, which is checked.
+SR3MXHAD_PROTOCOL=v3_pilot (the pilot, section 14) or v3 (stage 2, section 17). Splits: train and val_seen (the 1-in-10 val routes
+of the training maps) for fitting and selection; dev only for the closed-loop gates; stage 2 adds test (the C maps), prepared with
+everything else but read by nothing until the configuration is frozen (section 17.9). The vocabulary and action statistics come
+from train only. Labels are the pursuit actions stored with each route; where no offset was injected they must equal the pose
+difference, which is checked. Stage 2 records also carry the target class, the unseen-class flag and the name form (full / short).
 """
 import argparse
 from pathlib import Path
@@ -14,8 +16,9 @@ from experiments.v3_leak import Ground
 from had.tokenizer import Tokenizer
 from sr3m.geometry import adjacent_action, wrap
 
-SPLITS = {"train": "train", "val": "val_seen", "dev": "dev"}
-CATEGORY = {"L_MTN": "mountain", "L_DES": "desert"}
+SPLITS = {"train": "train", "val": "val_seen", "dev": "dev", "test": "test"}
+CATEGORY = {"L_MTN": "mountain", "L_MTR": "mountain", "L_DES": "desert"}
+SOURCES = {"sr3m_had_v3_pilot": "/mnt/f/WSL_ColdStorage/datasets/sr3m_v3_pilot", "sr3m_had_v3": "/mnt/f/WSL_ColdStorage/datasets/sr3m_v3"}
 MAX_TOKENS = 64
 
 
@@ -45,12 +48,14 @@ def compact(route, ground, offset):
     state = np.column_stack(((c * delta[:, 0] + s * delta[:, 1]) / 100, (-s * delta[:, 0] + c * delta[:, 1]) / 100, delta[:, 2] / 100, np.sin(Y - Y[0]), np.cos(Y - Y[0])))
     agl = P[:, 2] - ground(P[:, :2])
     slope = slope_deg(ground, P[:, :2])
-    map_id = route["id"][:7]
-    record = {"episode_id": f"v3_pilot/{map_id}/{route['id']}", "route_id": route["id"], "route_group_id": f"{map_id}/{route['object']}", "map_package": route["map_package"],
+    map_id = route["map"]
+    record = {"episode_id": f"{PROTOCOL['index']}/{map_id}/{route['id']}", "route_id": route["id"], "route_group_id": f"{map_id}/{route['object']}", "map_package": route["map_package"],
               "category": CATEGORY[map_id[:5]], "instruction": route["instruction"], "instruction_zh": route["instruction_zh"], "height_layer": "low" if route["agl"] <= 30 else "medium",
               "terrain_following": terrain_following(route), "directory": f"routes/{map_id}/{route['id']}", "images": route["images"], "offset": offset, "count": n,
               "length_m": float(np.linalg.norm(np.diff(P, axis=0), axis=1).sum()), "start_goal_m": float(distance[0]), "total_turn_rad": float(np.abs(A[:, 3]).sum()),
               "target": route["target"], "top_z": route["top_z"], "object": route["object"], "cls": route["cls"], "word": route["word"], "mode": route["mode"], "kick_steps": sorted(kicked)}
+    if "name_form" in route:  # stage 2
+        record.update(unseen_class=route["unseen_class"], name_form=route["name_form"], split=route["split"])
     if record["terrain_following"] != (route["mode"] == "follow"):
         raise ValueError(f"{route['id']}: instruction cohort and route mode disagree")
     arrays = {"state": state, "action": actions, "position": P, "yaw": Y, "stop": stop, "endpoint": endpoint, "action_valid": ~endpoint & ~stop, "distance_goal": distance, "agl": agl, "slope": slope}
@@ -58,18 +63,18 @@ def compact(route, ground, offset):
 
 
 def prepare(args):
-    if PROTOCOL["name"] != "sr3m_had_v3_pilot":
-        raise ValueError("Run with SR3MXHAD_PROTOCOL=v3_pilot")
-    root, out = Path(args.root), Path(args.out)
+    if PROTOCOL["name"] not in SOURCES:
+        raise ValueError("Run with SR3MXHAD_PROTOCOL=v3_pilot or v3")
+    root, out = Path(args.root or SOURCES[PROTOCOL["name"]]), Path(args.out)
     if out.exists():
         raise ValueError(f"{out} exists; choose a new preparation directory")
     plan = read_json(root / "plan.json")
     routes = {s: [] for s in SPLITS.values()}
     for map_id in plan["maps"]:
         folder = root / "routes" / map_id
-        log = read_json(folder / "checks.json")
+        log = read_json(folder / "checks.json") if (folder / "checks.json").exists() else {}
         accepted = [k for k, v in log.items() if v == "accepted"]
-        if len(accepted) != plan["maps"][map_id]["quota"]:
+        if len(accepted) != plan["maps"][map_id]["quota"] and not args.partial:
             raise ValueError(f"{map_id}: {len(accepted)} rendered, quota {plan['maps'][map_id]['quota']}")
         for route_id in accepted:
             route = read_json(folder / route_id / "route.json")
@@ -77,10 +82,11 @@ def prepare(args):
     grounds = {m: Ground(m, args.cache) for m in plan["maps"]}
     out.mkdir(parents=True)
     counts, diagnostics = {}, {}
+    routes = {s: items for s, items in routes.items() if items}  # the pilot has no test maps; a partial dry run may lack more
     for split, items in routes.items():
         records, collected, offset = [], {}, 0
         for route in items:
-            record, arrays = compact(route, grounds[route["id"][:7]], offset)
+            record, arrays = compact(route, grounds[route["map"]], offset)
             records.append(record)
             for k, v in arrays.items():
                 collected.setdefault(k, []).append(v)
@@ -100,10 +106,15 @@ def prepare(args):
         raise ValueError("An instruction is longer than the tokenizer keeps")
     tokenizer.save(out / "tokenizer.json")
     write_json(out / "statistics.json", stats)
-    dev = read_json(out / "dev.json")
+    dev = read_json(out / "dev.json") if "dev" in routes else []
     write_json(out / "closed_loop_routes.json", {"split": "dev", "selection": "all dev routes, fixed by the plan before training",
                                                  "routes": [{k: r[k] for k in ("episode_id", "route_id", "map_package", "category", "terrain_following", "height_layer", "length_m", "start_goal_m", "cls", "word")} for r in dev]})
-    write_json(out / "protocol.json", {"protocol": PROTOCOL, "routes": counts, "source": {"root": str(root), "plan_seed": plan["seed"], "design": plan["design"]}, "code": code_version(), "prepared_version": 1})
+    if "test" in routes:
+        test = read_json(out / "test.json")
+        write_json(out / "test_routes.json", {"split": "test", "selection": "all test routes, fixed by the plan; not read until the configuration is frozen (section 17.9)",
+                                              "routes": [{k: r[k] for k in ("episode_id", "route_id", "map_package", "category", "terrain_following", "height_layer", "cls", "word", "unseen_class", "name_form")} for r in test]})
+    write_json(out / "protocol.json", {"protocol": PROTOCOL, "routes": counts, "source": {"root": str(root), "plan_seed": plan["seed"], "design": plan["design"]}, "code": code_version(), "prepared_version": 1,
+                                       **({"partial": True} if args.partial else {})})
     diagnostics["tokenizer"] = {s: tokenizer.describe([r["instruction"] for r in rr]) for s, rr in routes.items()}
     diagnostics["vocab_size"] = tokenizer.vocab_size
     write_json(out / "preparation.json", diagnostics)
@@ -112,6 +123,7 @@ def prepare(args):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--root", default="/mnt/f/WSL_ColdStorage/datasets/sr3m_v3_pilot"); p.add_argument("--out", default="runs/v3_pilot/prepared")
+    p.add_argument("--root", default=None, help="default: the dataset of the chosen PROTOCOL"); p.add_argument("--out", required=True)
+    p.add_argument("--partial", action="store_true", help="dry run on a render still in progress; marked partial in protocol.json, never for training")
     p.add_argument("--cache", default=str(Path.home() / "sr3mxhad_runs/v3/ground"))
     prepare(p.parse_args())

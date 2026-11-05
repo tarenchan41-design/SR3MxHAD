@@ -1,5 +1,8 @@
 """Resumeable frozen DINOv2 feature extraction (fp32 compute, float16 storage); projections are never cached.
 
+--grid4-out also writes, from the same forward pass, the down view as CLS + 4x4 patch mean into a second cache laid out like the
+B4 cache of protocol section 16 (front.npy links to the 2x2 front view); stage 2 compares 2x2 and 4x4 (section 17.6).
+
 Needs `transformers` (kept outside the shared venv: PYTHONPATH=~/sr3mxhad_runs/pylib)."""
 import argparse
 import fcntl
@@ -11,7 +14,7 @@ from PIL import Image
 import torch
 from torch.utils.data import DataLoader, Dataset
 from experiments.protocol import PROTOCOL, PreparedSplit, read_json, write_json
-from had.model import FEATURE_DIM, DinoFeatures, image_transform, configure_precision
+from had.model import FEATURE_DIM, DinoFeatures, feature_dim, image_transform, configure_precision, pooled_tokens
 
 
 class Images(Dataset):
@@ -59,6 +62,7 @@ def extract_locked(args):
             write_json(meta_path, meta)
         if any(x.shape != (ds.n, FEATURE_DIM) or x.dtype != dtype for x in features.values()):
             raise ValueError("Bad cache shape/dtype")
+        grid4 = open_grid4(args, split, ds, meta, start, out, dtype) if args.grid4_out else None
         loader = DataLoader(Images(ds, args.root, start), batch_size=args.batch_size, num_workers=args.workers,
                             pin_memory=args.device.startswith("cuda"),
                             **({"prefetch_factor": 1} if args.workers else {}))
@@ -66,7 +70,13 @@ def extract_locked(args):
         with torch.inference_mode():
             for images in loader:
                 count = len(images)
-                values = backbone(images.flatten(0, 1).to(args.device, non_blocking=True)).reshape(count, 2, FEATURE_DIM).cpu().numpy()
+                hidden = backbone.net(pixel_values=images.flatten(0, 1).to(args.device, non_blocking=True)).last_hidden_state
+                values = pooled_tokens(hidden, 2).reshape(count, 2, FEATURE_DIM).cpu().numpy()
+                if grid4 is not None:
+                    down4 = pooled_tokens(hidden.reshape(count, 2, *hidden.shape[1:])[:, 1], 4).cpu().numpy()
+                    if not np.isfinite(down4).all() or np.abs(down4).max() >= np.finfo(dtype).max:
+                        raise ValueError("Nonfinite 4x4 features or out of storage range")
+                    grid4["down"][cursor:cursor+count] = down4.astype(dtype)
                 if not np.isfinite(values).all() or np.abs(values).max() >= np.finfo(dtype).max:
                     raise ValueError("Nonfinite backbone features or out of storage range")
                 values = values.astype(dtype)
@@ -74,12 +84,38 @@ def extract_locked(args):
                     features[view][cursor:cursor+count] = values[:, j]
                 cursor += count
                 if time.monotonic() - logged > 20 or cursor == ds.n:
+                    if grid4 is not None:  # the 4x4 cache never claims more rows than the 2x2 one
+                        grid4["down"].flush(); grid4["meta"]["completed_rows"] = cursor; write_json(grid4["path"], grid4["meta"])
                     for value in features.values(): value.flush()
                     meta["completed_rows"] = cursor; write_json(meta_path, meta)
                     print(f"cache {split}: {cursor}/{ds.n}, {(cursor-start)/max(time.monotonic()-started,.001):.1f} observations/s", flush=True)
                     logged = time.monotonic()
+        if grid4 is not None:
+            grid4["down"].flush(); grid4["meta"]["completed_rows"] = cursor; write_json(grid4["path"], grid4["meta"])
         for value in features.values(): value.flush()
         meta["completed_rows"] = cursor; write_json(meta_path, meta)
+
+
+def open_grid4(args, split, ds, meta, start, source, dtype):
+    """The 4x4 down cache for this split, resumed in step with the 2x2 cache."""
+    out = Path(args.grid4_out) / split; out.mkdir(parents=True, exist_ok=True)
+    path, width = out / "cache.json", feature_dim(4)
+    if path.exists():
+        grid_meta = read_json(path)
+        if grid_meta["prepared"] != ds.protocol or grid_meta["completed_rows"] < start:
+            raise ValueError("The 4x4 cache belongs to another preparation or is behind the 2x2 cache")
+        down = np.load(out / "down.npy", mmap_mode="r+")
+    else:
+        if start:
+            raise ValueError("The 2x2 cache is already partly filled; start the 4x4 cache together with it")
+        down = np.lib.format.open_memmap(out / "down.npy", mode="w+", dtype=dtype, shape=(ds.n, width))
+        (out / "front.npy").symlink_to((source / "front.npy").resolve())
+        grid_meta = {**meta, "feature": {"front": meta["feature"], "down": "last_layer_cls_plus_4x4_patch_mean"}, "feature_dims": {"front": FEATURE_DIM, "down": width},
+                     "sources": {"front": str(source.resolve()), "down": "same forward pass as the 2x2 cache"}, "completed_rows": 0}
+        write_json(path, grid_meta)
+    if down.shape != (ds.n, width) or down.dtype != dtype:
+        raise ValueError("Bad 4x4 cache shape/dtype")
+    return {"down": down, "meta": grid_meta, "path": path}
 
 
 def extract(args):
@@ -93,6 +129,7 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--prepared", required=True); p.add_argument("--root", required=True); p.add_argument("--out", required=True)
     p.add_argument("--device", default="cuda")
-    p.add_argument("--splits", nargs="+", choices=("train", "val_seen", "val_unseen", "dev"), default=["train", "val_seen", "val_unseen"])
+    p.add_argument("--splits", nargs="+", choices=("train", "val_seen", "val_unseen", "dev", "test"), default=["train", "val_seen", "val_unseen"])
+    p.add_argument("--grid4-out", default=None, help="also write the down view on a 4x4 grid here (same forward pass)")
     p.add_argument("--batch-size", type=int, default=32); p.add_argument("--workers", type=int, default=8)
     extract(p.parse_args())

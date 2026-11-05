@@ -30,7 +30,10 @@ PROTOCOL_V2 = {
 # Dataset v3 pilot (protocol.md section 14). Chosen by SR3MXHAD_PROTOCOL=v3_pilot so every v2 artifact stays valid.
 PROTOCOL_V3_PILOT = {**PROTOCOL_V2, "name": "sr3m_had_v3_pilot", "index": "v3_pilot", "action_contract": "v3_pursuit_label_fru_m_rad",
                      "stop_radius_m": 5., "seeds": [42]}
-PROTOCOLS = {"v2": PROTOCOL_V2, "v3_pilot": PROTOCOL_V3_PILOT}
+# Dataset v3 stage 2 (protocol.md sections 17.5-17.6): the pilot's definition with three seeds; STOP positives within 5 m,
+# success within 20 m. Chosen by SR3MXHAD_PROTOCOL=v3; the pilot's preparation, caches and models stay valid.
+PROTOCOL_V3 = {**PROTOCOL_V3_PILOT, "name": "sr3m_had_v3", "index": "v3", "seeds": [42, 43, 44]}
+PROTOCOLS = {"v2": PROTOCOL_V2, "v3_pilot": PROTOCOL_V3_PILOT, "v3": PROTOCOL_V3}
 PROTOCOL = PROTOCOLS[os.environ.get("SR3MXHAD_PROTOCOL", "v2")]
 EXPECTED = {"train": 1028, "val_seen": 184, "val_unseen": 247, "test": 147}
 # Categories with terrain exports: AGL/slope labels, follow/control cohorts, H1/H2.
@@ -39,7 +42,7 @@ TERRAIN = tuple(PROTOCOL["terrain_categories"])
 # (protocol.md §6); kept outside PROTOCOL so existing preparations and caches stay valid.
 MAIN_VARIANTS = ("A", "B")
 # Diagnostic variants defined outside PROTOCOL for the same reason. N: instruction + state only. B0: B with the state zeroed.
-DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"], "B4": ["front", "down"]}  # B4: down view on a 4x4 grid (section 16)
+DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"], "B4": ["front", "down"], "C4": ["down"]}  # B4, C4: down view on a 4x4 grid (sections 16, 17.6)
 
 
 def machine_paths():

@@ -33,3 +33,23 @@ def test_bulk_render_splits_every_tenth_training_route_to_val_and_keeps_dev_and_
     from experiments.v3s2_capture import split_of
     assert [split_of("L_MTR_A", k) for k in range(20)].count("val") == 2 and split_of("L_DES_D_v3", 9) == "val"
     assert split_of("L_MTR_B", 9) == "dev" and split_of("L_DES_C_v3", 9) == "test" and split_of("L_MTR_A", 0) == "train"
+
+
+def test_stage_2_protocol_and_the_4x4_variants():
+    import importlib, os
+    import experiments.protocol as protocol
+    from had.model import GRIDS, VARIANTS, feature_dim
+    assert protocol.PROTOCOLS["v3"]["stop_radius_m"] == 5. and protocol.PROTOCOLS["v3"]["success_radius_m"] == 20.
+    assert protocol.PROTOCOLS["v3"]["seeds"] == [42, 43, 44] and protocol.PROTOCOLS["v3"]["index"] == "v3"
+    assert protocol.PROTOCOLS["v3_pilot"]["seeds"] == [42] and protocol.PROTOCOLS["v3_pilot"]["name"] == "sr3m_had_v3_pilot"
+    assert VARIANTS["C4"] == ("down",) and GRIDS["C4"] == {"down": 4} and feature_dim(4) == 13056
+
+
+def test_one_forward_pass_gives_the_2x2_cache_and_a_4x4_grid_that_pools_back_to_it():
+    import torch
+    from had.model import pooled_tokens
+    hidden = torch.randn(3, 1 + 16 * 16, 8)
+    two, four = pooled_tokens(hidden, 2), pooled_tokens(hidden, 4)
+    cells4 = four[:, 8:].reshape(3, 4, 4, 8)
+    pooled = cells4.reshape(3, 2, 2, 2, 2, 8).mean((2, 4)).reshape(3, 32)
+    assert torch.allclose(two[:, :8], four[:, :8]) and torch.allclose(two[:, 8:], pooled, atol=1e-6)

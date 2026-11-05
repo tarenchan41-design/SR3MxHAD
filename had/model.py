@@ -20,9 +20,10 @@ from had.vendor.policy_head import MultiHeadPolicy
 DINO = {"model": "facebook/dinov2-base", "revision": "f9e44c814b77203eaa57a6bdbbd535f21ede1415", "width": 768}
 FEATURE_DIM = 5 * DINO["width"]   # CLS + 2x2 average of the last-layer patch tokens
 # N (no image input) is a diagnostic: missing views are zero-filled exactly as for A and C.
-VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down"), "B4": ("front", "down")}
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down"), "B4": ("front", "down"), "C4": ("down",)}
 # Patch grid per view where it is not 2x2. B4 (protocol.md section 16): B with the down view pooled on a 4x4 grid.
-GRIDS = {"B4": {"down": 4}}
+# C4 (section 17.6): C on the same 4x4 down view, used if the development maps choose 4x4.
+GRIDS = {"B4": {"down": 4}, "C4": {"down": 4}}
 
 
 def feature_dim(grid=2):

@@ -4,8 +4,9 @@ Per map, the plan's candidates in order: the UE checks of section 14 (start-to-t
 UE ground clearance >= 2 m); a route that fails is skipped with its reason and the next one is taken, until the map's quota is met.
 Every step is rendered (front and down, RGB) in the layout of the stage 1 pilot, so the stage 1 preparation code can read it.
 Splits: training maps by accepted rank, every tenth to val (section 14); development maps "dev"; test maps "test".
-Settings: STAGE2_CONSOLE (VSM off, shadow bias 20 / 4.5), the memory restart policy (commit 80 %), the capture settings of the
-import check; the same as the capture side of G1. Resumes per route. Close the GUI editor first. Writes only under --out.
+Settings: STAGE2_CONSOLE (VSM off, shadow bias 20 / 4.5), the memory restart policy (commit 80 %, at most 512 renders per process),
+the capture settings of the import check; the same as the capture side of G1 except that memory is read every 16 renders, not
+after each (11/05: the reading cost 0.17-0.4 s a render here; restart timing does not change pixels, which G1 showed). Resumes per route. Close the GUI editor first. Writes only under --out.
 """
 import argparse
 import shutil
@@ -17,6 +18,7 @@ from experiments.v3_ue_check import CAPTURE, PROFILE, STAGE2_CONSOLE, maps
 from experiments.v3s2_stage0 import DEV, TEST, TRAIN
 
 VAL_EVERY = 10
+MEMORY_CHECK_EVERY = 16
 
 
 def split_of(map_id, accepted_rank):
@@ -50,7 +52,7 @@ def render(args):
         if len(accepted) >= quota:
             print(map_id, "complete", flush=True)
             continue
-        with UEBackend(target / "session", PROFILE, maps()[map_id][0], CAPTURE, policy=MemoryPolicy(), console=STAGE2_CONSOLE) as backend:
+        with UEBackend(target / "session", PROFILE, maps()[map_id][0], CAPTURE, policy=MemoryPolicy(check_every=MEMORY_CHECK_EVERY), console=STAGE2_CONSOLE) as backend:
             for route in entry["candidates"]:
                 if len(accepted) >= quota:
                     break
