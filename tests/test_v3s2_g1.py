@@ -27,3 +27,9 @@ def test_selection_repeats_targets_rather_than_fall_short():
     candidates = [route(i, "follow" if i % 2 else "hold", f"o{i % 5}") for i in range(60)]
     g1, preview, _ = select(candidates, lambda r: None)
     assert len(g1) == 6 and len(preview) == 12
+
+
+def test_bulk_render_splits_every_tenth_training_route_to_val_and_keeps_dev_and_test_apart():
+    from experiments.v3s2_capture import split_of
+    assert [split_of("L_MTR_A", k) for k in range(20)].count("val") == 2 and split_of("L_DES_D_v3", 9) == "val"
+    assert split_of("L_MTR_B", 9) == "dev" and split_of("L_DES_C_v3", 9) == "test" and split_of("L_MTR_A", 0) == "train"
