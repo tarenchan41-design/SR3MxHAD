@@ -22,7 +22,8 @@ HOUSE_WIDTH_M = 10.
 # The v2 targets kept in the desert carry placeholders ("(original)"). Appearance from the stage 1 table reviewed at G0-5 and the
 # Blender previews; site from the v2 landmarks. All are drafts until the G0-5 review.
 DRAFTS = {
-    "DES_A_helipad_1": ("round light grey concrete helipad with a white H", "in the western dune valley", "带白色H的浅灰色圆形混凝土停机坪", "西侧沙丘谷地中的"),
+    # 11/05 G1 preview: a v2 sand track runs onto this pad and hides most of the H, so the H is not in the text.
+    "DES_A_helipad_1": ("round light grey concrete helipad at the end of a sand track", "in the western dune valley", "沙土车道尽头的浅灰色圆形混凝土停机坪", "西侧沙丘谷地中的"),
     "DES_A_ruins_1": ("square stone ruins without a roof, with a row of columns and an arched gate", "in a dune valley", "带一排石柱和拱门的无顶方形石砌遗迹", "沙丘谷地中的"),
     "DES_B_helipad_1": ("round light grey concrete helipad with a white H", "on the north plateau", "带白色H的浅灰色圆形混凝土停机坪", "北侧台地上的"),
     "DES_B_tent_camp_1": ("camp of small orange, yellow, blue and green dome tents in rows next to white containers and parked cars", "on the canyon floor",
