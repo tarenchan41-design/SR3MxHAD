@@ -25,7 +25,10 @@ DESIGNS = {"pursuit": Design(), "pursuit_kick": Design(kick_every=25.), "rotate_
            "kick_start": Design(kick_every=25., start_kick_steps=3), "kick_start_relief": Design(kick_every=25., start_kick_steps=3, relief_share=.5),
            "kick_start2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.)), "kick_start2_relief": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5),
            # Stage 2 (section 17.3): the stage 1 design plus rule 8 (no same class within 40 m of the path) and rule 9 (follow routes: half with hold deviation >= 5 m).
-           "kick_start2_relief_s2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5, same_class_clear_m=40., follow_dev_share=.5, follow_dev_min_m=5.)}
+           "kick_start2_relief_s2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5, same_class_clear_m=40., follow_dev_share=.5, follow_dev_min_m=5.),
+           # 11/05 after G0-5: targets drawn in balanced rounds; half the routes name the target by appearance only (option C).
+           "kick_start2_relief_s2b": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5, same_class_clear_m=40., follow_dev_share=.5, follow_dev_min_m=5.,
+                                            balance_rounds=True, short_name_share=.5)}
 WORDS = ("left", "ahead", "right")
 GRID_M = 4.
 COARSE_STEP = math.radians(15)

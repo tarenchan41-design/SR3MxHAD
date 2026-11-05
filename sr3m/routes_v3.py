@@ -38,6 +38,9 @@ class Design:
     same_class_clear_m > 0 is rule 8 (section 17.3): no other object of the target's class within that distance of the expert path,
     start included. follow_dev_share > 0 is rule 9: that share of a map's terrain-following routes must have a hold deviation
     (hold_deviation) of at least follow_dev_min_m; it gives up the same way as the relief quota.
+    balance_rounds draws targets in rounds: every target gets one route per round before any gets a second, and a target that
+    fails round_patience times within a round sits out the rest of that round. short_name_share of the routes name the target by its
+    appearance alone (en_short / zh_short) instead of appearance + site (decision of 11/05, option C).
     """
     gain: float = .25
     max_yaw_deg: float = 5.
@@ -60,6 +63,9 @@ class Design:
     same_class_clear_m: float = 0.
     follow_dev_share: float = 0.
     follow_dev_min_m: float = 5.
+    balance_rounds: bool = False
+    round_patience: int = 60
+    short_name_share: float = 0.
 
 
 def bearing_to(position, yaw, target):
@@ -196,11 +202,13 @@ def hold_height(z):
     return lambda xy, previous, heading: z
 
 
-def instruction(obj, word, mode, rng):
+def instruction(obj, word, mode, rng, short=False):
+    """short names the target by its appearance alone (en_short / zh_short); the plural flag is the same for both names."""
     frame = int(rng.integers(len(FRAMES["en"])))
     plural = obj["plural"] if "plural" in obj else obj["en"].split(" with ")[0].split(" of ")[0].split()[-1] in PLURAL
-    en = FRAMES["en"][frame].format(what=obj["en"], where=WHERE[word][0], height=HEIGHT[mode][0], it="them" if plural else "it", **{"is": "are" if plural else "is"})
-    return en[0].upper() + en[1:], FRAMES["zh"][frame].format(what=obj["zh"], where=WHERE[word][1], height=HEIGHT[mode][1])
+    what_en, what_zh = (obj["en_short"], obj["zh_short"]) if short else (obj["en"], obj["zh"])
+    en = FRAMES["en"][frame].format(what=what_en, where=WHERE[word][0], height=HEIGHT[mode][0], it="them" if plural else "it", **{"is": "are" if plural else "is"})
+    return en[0].upper() + en[1:], FRAMES["zh"][frame].format(what=what_zh, where=WHERE[word][1], height=HEIGHT[mode][1])
 
 
 def propose(obj, others, ground, design, rng, require_relief=False, require_follow_dev=False):
@@ -253,10 +261,12 @@ def propose(obj, others, ground, design, rng, require_relief=False, require_foll
     dev_median, dev_mean = hold_deviation(below)
     if require_follow_dev and mode == "follow" and dev_median < design.follow_dev_min_m:
         return None, "follow route too flat"
-    en, zh = instruction(obj, direction_word(bearing), mode, rng)
+    short = design.short_name_share > 0 and rng.random() < design.short_name_share  # no draw when off, so older designs reproduce
+    en, zh = instruction(obj, direction_word(bearing), mode, rng, short=short)
     return dict(map=obj["map"], object=obj["key"], cls=obj["cls"], mode=mode, agl=agl, distance=distance, bearing=bearing, word=direction_word(bearing), target=list(target), top_z=obj["top_z"], width_m=obj["width_m"],
                 positions=positions, yaws=yaws, actions=actions, kicks=kicks, relief_m=relief, climb_m=float(positions[:, 2].max() - positions[:, 2].min()),
-                hold_dev_median_m=dev_median, hold_dev_mean_m=dev_mean, unseen_class=bool(obj.get("unseen_class", False)), instruction=en, instruction_zh=zh), None
+                hold_dev_median_m=dev_median, hold_dev_mean_m=dev_mean, unseen_class=bool(obj.get("unseen_class", False)), name_form="short" if short else "full",
+                instruction=en, instruction_zh=zh), None
 
 
 def generate(objects, ground, count, design, rng, tries_per_route=60):
@@ -270,12 +280,30 @@ def generate(objects, ground, count, design, rng, tries_per_route=60):
     i = tries = hilly = flat_streak = follows = follow_ok = dev_streak = 0
     quota_open = design.relief_share > 0
     dev_open = design.follow_dev_share > 0
+    pending, cursor, misses = [], 0, {}
     while len(routes) < count and tries < count * tries_per_route:
-        obj = targets[order[i % len(order)]]
+        if design.balance_rounds:
+            if not pending:  # a new round, in the same fixed order
+                pending, cursor, misses = list(order), 0, {}
+            cursor %= len(pending)
+            index = pending[cursor]
+            obj = targets[index]
+        else:
+            obj = targets[order[i % len(order)]]
         i += 1
         tries += 1
         route, reason = propose(obj, objects, ground, design, rng, require_relief=quota_open and hilly < design.relief_share * (len(routes) + 1),
                                 require_follow_dev=dev_open and follow_ok < design.follow_dev_share * (follows + 1))
+        if design.balance_rounds:
+            if route is None:
+                misses[index] = misses.get(index, 0) + 1
+                if misses[index] >= design.round_patience:
+                    pending.pop(cursor)
+                    rejected["sat out a round"] = rejected.get("sat out a round", 0) + 1
+                else:
+                    cursor += 1
+            else:
+                pending.pop(cursor)
         if route is None:
             rejected[reason] = rejected.get(reason, 0) + 1
             flat_streak = flat_streak + 1 if reason == "too flat" else flat_streak

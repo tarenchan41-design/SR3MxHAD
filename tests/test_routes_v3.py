@@ -259,3 +259,36 @@ def test_an_explicit_plural_flag_wins_over_the_head_noun_guess():
     assert all("them" in instruction(rows, "left", "hold", rng)[0] for _ in range(20))
     dome = dict(building(), en="the white radar dome on a small grey building on a mountain shoulder", plural=False)
     assert all(" are " not in t and "them" not in t for t in (instruction(dome, "left", "hold", rng)[0] for _ in range(20)))
+
+
+def test_balanced_rounds_spread_routes_evenly_and_a_hopeless_target_sits_out():
+    easy = [building(k, cls=k, center=(400. * i, 0.)) for i, k in enumerate("abcd")]
+    routes, _ = generate(easy, flat, 20, Design(balance_rounds=True), np.random.default_rng(0))
+    counts = [sum(r["object"] == k for r in routes) for k in "abcd"]
+    assert counts == [5, 5, 5, 5]
+    for start in range(0, 20, 4):  # every round gives each target one route before any gets another
+        assert {r["object"] for r in routes[start:start + 4]} == set("abcd")
+    tiny = dict(building("t", cls="t", center=(2000., 0.)), width_m=3.)  # never fits the patch rule
+    routes, rejected = generate([*easy, tiny], flat, 12, Design(balance_rounds=True, round_patience=30), np.random.default_rng(0))
+    assert len(routes) == 12 and rejected["sat out a round"] >= 2 and "t" not in {r["object"] for r in routes}
+    assert [sum(r["object"] == k for r in routes) for k in "abcd"] == [3, 3, 3, 3]
+
+
+def test_short_names_use_the_appearance_alone_for_about_half_the_routes():
+    obj = dict(building(), en="the long building on a terrace", zh="台地上的长条建筑", en_short="the long building", zh_short="长条建筑", plural=False)
+    routes, _ = generate([obj], flat, 60, Design(short_name_share=.5), np.random.default_rng(0))
+    short = [r for r in routes if r["name_form"] == "short"]
+    assert 15 <= len(short) <= 45
+    assert all("terrace" not in r["instruction"] and "台地" not in r["instruction_zh"] for r in short)
+    assert all("terrace" in r["instruction"] and "台地" in r["instruction_zh"] for r in routes if r["name_form"] == "full")
+
+
+def test_stage_2_object_table_names_have_no_compass_words_and_short_names_are_prefixes_of_meaning():
+    import json
+    from pathlib import Path
+    rows = json.loads(Path("configs/v3s2_objects.json").read_text(encoding="utf-8"))
+    targets = [r for r in rows if r["role"] == "target"]
+    assert len(targets) >= 8 * 15
+    for r in targets:
+        assert not re.search(r"\b(north|south|east|west)", (r["en"] + r["en_short"]).lower()) and not re.search(r"[东南西北]", r["zh"] + r["zh_short"])
+        assert r["en"] == f'{r["en_short"]} {r["site_en"]}' and r["zh"] == r["site_zh"] + r["zh_short"]

@@ -20,13 +20,14 @@ from PIL import Image
 
 from experiments.protocol import code_version, read_json, write_json
 from experiments.v3_leak import DESIGNS, GATES, Ground, route_stats, test_design
+from experiments.v3s2_objects import COMPASS_EN, COMPASS_ZH
 from sr3m.routes_v3 import generate
 
 TRAIN = ("L_MTR_A", "L_MTR_D", "L_DES_A_v3", "L_DES_D_v3")
 DEV = ("L_MTR_B", "L_DES_B_v3")
 TEST = ("L_MTR_C", "L_DES_C_v3")
 QUOTA = {**{m: 200 for m in TRAIN}, **{m: 40 for m in DEV}, **{m: 60 for m in TEST}}
-DESIGN = "kick_start2_relief_s2"
+DESIGN = "kick_start2_relief_s2b"  # plan_v0 used kick_start2_relief_s2
 SEED = 20261108
 LEAK_SEEDS = (20261105, 20261106, 20261107)
 CANDIDATES = 1.6  # as stage 1: candidates per quota slot, so UE rejections cannot run a map dry
@@ -129,6 +130,12 @@ def gates(args):
         stats["first_quota"] = discrimination(first)
         stats["all_candidates"] = discrimination(entry["candidates"])
         stats["unseen_routes_first_quota"] = sum(r["unseen_class"] for r in first)
+        per_target = {o["key"]: 0 for o in objects if o["map"] == map_id and o["role"] == "target"}
+        for r in first:
+            per_target[r["object"]] += 1
+        stats["routes_per_target_first_quota"] = [min(per_target.values()), max(per_target.values())]
+        stats["short_names_first_quota"] = sum(r.get("name_form") == "short" for r in first)
+        stats["compass_words"] = sum(bool(COMPASS_EN.search(r["instruction"]) or COMPASS_ZH.search(r["instruction_zh"])) for r in entry["candidates"])
         report["maps"][map_id] = stats
     per_map = {m: report["maps"][m]["first_quota"]["median_of_step_median_m"] for m in DEV + TEST}
     pooled = discrimination([r for m in DEV + TEST for r in planned["maps"][m]["candidates"][:QUOTA[m]]])
@@ -162,7 +169,7 @@ def object_card(obj, out):
     pics = "".join(f'<a href="img/{n}" target="_blank"><img loading="lazy" src="img/{n}" alt="{html.escape(obj["key"])} {v}"></a>'
                    for v, n in (("top", thumbnail(obj["preview_top"], out, f'{obj["key"]}_top.jpg')), ("takeoff", thumbnail(obj["preview_takeoff"], out, f'{obj["key"]}_takeoff.jpg'))))
     options = "".join(f'<label><input type="radio" name="obj__{html.escape(identity)}" value="{v}" data-id="{html.escape(identity)}" data-q="verdict">{t}</label>' for v, t in OBJECT_CHOICES)
-    badges = "".join(f'<span class="badge">{t}</span> ' for t in (["草稿，请重点看"] if obj["draft"] else []) + (["未见类别"] if obj["unseen_class"] else []) + [f"已修：{f}" for f in obj["fixes"]])
+    badges = "".join(f'<span class="badge">{t}</span> ' for t in (["agent 起草"] if obj["drafted"] else []) + (["未见类别"] if obj["unseen_class"] else []) + [f"已修：{f}" for f in obj["fixes"]])
     return f"""<div class="obj" data-id="{html.escape(identity)}"><div class="pair">{pics}</div><div class="objtext">{badges}<br><b>{html.escape(obj["zh"])}</b><br><span class="en">{html.escape(obj["en"])}</span><br>
 <span class="meta">外观：{html.escape(obj["description_zh"])} ｜ 位置：{html.escape(obj["site_zh"])}<br>{obj["map"]} · {html.escape(obj["cls"])} · 外观 {html.escape(str(obj["variant"]))} · {obj["footprint_m"][0]:.0f}×{obj["footprint_m"][1]:.0f} m · 高 {obj["height_m"]:.1f} m · {"复数" if obj["plural"] else "单数"}</span></div>
 <div class="opts">{options}</div><input class="note" data-id="{html.escape(identity)}" data-q="note" placeholder="改成什么（可不填）"></div>"""
@@ -186,7 +193,7 @@ def route_card(number, route, ground, out):
 def pick(routes, objects, count, seed):
     """Spread over objects, modes and words; one unseen-class route and one draft-target route when the map has them."""
     from experiments.v3_review import choose
-    drafts = {o["key"] for o in objects if o["role"] == "target" and o["draft"]}
+    drafts = {o["key"] for o in objects if o["role"] == "target" and o["drafted"]}
     picked = []
     for wanted in (lambda r: r["unseen_class"], lambda r: r["object"] in drafts):
         pool = [r for r in routes if wanted(r) and r not in picked]
@@ -204,7 +211,7 @@ def review(args):
     planned = read_json(Path(args.out) / "plan.json")
     objects = json.load(open(args.objects, encoding="utf-8"))
     targets = [o for o in objects if o["role"] == "target"]
-    cards = "".join(object_card(o, out) for o in sorted(targets, key=lambda o: (not o["draft"], o["map"], o["key"])))
+    cards = "".join(object_card(o, out) for o in sorted(targets, key=lambda o: (not o["drafted"], o["map"], o["key"])))
     previews, number = [], 0
     for map_id in TRAIN + DEV + TEST:
         routes = [arrays(r) for r in planned["maps"][map_id]["candidates"][:QUOTA[map_id]]]

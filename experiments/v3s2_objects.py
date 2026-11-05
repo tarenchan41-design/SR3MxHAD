@@ -4,7 +4,9 @@ Coordinates are UE metres (x east, y south = -Blender y), the frame of the groun
 Targets come from each map's scene config. The instruction name is appearance + site (decision of 11/05): description_en/zh hold the
 appearance alone, site_en/zh the site, en/zh the full name the generator uses. Distractors are never targets but take part in the
 ambiguity check (rule 7) and rule 8: desert class_like_v2_objects with counted=false, and village, farm and hut houses as small_houses
-(decision of 11/05). Text fixes and drafts for the seven v2 targets are listed here so the table can be rebuilt; drafts wait for G0-5.
+(decision of 11/05). Text fixes and drafts for the seven v2 targets are listed here so the table can be rebuilt; the drafts passed G0-5
+on 11/05. Sites carry no compass words: the policy only knows its pose relative to the takeoff, never north (rule 7, decision of 11/05).
+en_short / zh_short name the target by its appearance alone, for the routes that use the short name (option C, decision of 11/05).
 """
 import argparse
 import json
@@ -29,6 +31,20 @@ DRAFTS = {
     "DES_D_helipad_1": ("round light grey concrete helipad with a white H", "below the fenced weather station", "带白色H的浅灰色圆形混凝土停机坪", "围栏气象站下方的"),
     "DES_D_helipad_2": ("round light grey concrete helipad with a white H", "on the northern alluvial fan", "带白色H的浅灰色圆形混凝土停机坪", "北侧冲积扇上的"),
 }
+# Compass words removed from sites (11/05): (site_en, site_zh) after the change.
+SITE_FIXES = {
+    "DES_A_helipad_1": ("in a dune valley", "沙丘谷地中的"),
+    "MTR_B_radar_dome_1": ("on a ridge shoulder", "山脊肩部的"),
+    "MTR_B_solar_array_1": ("on a meadow shoulder", "草甸肩部的"),
+    "MTR_B_container_yard_1": ("on a terrace above a valley", "山谷上方台地上的"),
+    "MTR_B_helipad_2": ("on a ridge shoulder", "山脊肩部的"),
+    "MTR_B_sports_field_1": ("on a terrace above a valley", "山谷上方台地上的"),
+    "MTR_B_tent_camp_2": ("at the forest edge above a valley", "山谷上方林缘的"),
+    "DES_B_helipad_1": ("on the plateau", "台地上的"),
+    "DES_D_helipad_2": ("on an alluvial fan", "冲积扇上的"),
+}
+COMPASS_EN = re.compile(r"\b(north|south|east|west)", re.I)
+COMPASS_ZH = re.compile("[东南西北]")
 HEAD_BREAK = re.compile(r",| (with|without|of|on|in|at|by|next|beside|below|above|near|split|parked|stacked)\b")
 
 
@@ -46,7 +62,11 @@ def split_text(target):
     """Appearance and site, with the fixes applied; returns (description_en, site_en, description_zh, site_zh, fixes, draft)."""
     if target["id"] in DRAFTS:
         en, site_en, zh, site_zh = DRAFTS[target["id"]]
-        return en, site_en, zh, site_zh, ["v2 target: placeholder text replaced by a draft"], True
+        fixes = ["v2 target: placeholder text replaced by a draft (G0-5 passed 11/05)"]
+        if target["id"] in SITE_FIXES:
+            site_en, site_zh = SITE_FIXES[target["id"]]
+            fixes.append("compass word removed from the site")
+        return en, site_en, zh, site_zh, fixes, True
     full_en, site_en, full_zh, site_zh = target["description_en"], target["site_en"], target["description_zh"], target["site_zh"]
     if not full_en.endswith(" " + site_en) or not full_zh.startswith(site_zh):
         raise ValueError(f"{target['id']}: the description does not end with the site")
@@ -57,6 +77,9 @@ def split_text(target):
     if zh.startswith("路边") and site_zh.endswith("旁的"):
         zh = zh[len("路边"):]
         fixes.append("removed the repeated '路边'")
+    if target["id"] in SITE_FIXES:
+        site_en, site_zh = SITE_FIXES[target["id"]]
+        fixes.append("compass word removed from the site")
     return en, site_en, zh, site_zh, fixes, False
 
 
@@ -67,8 +90,8 @@ def target_row(map_id, config_path, target):
     return {"map": map_id, "key": target["id"], "cls": target["class"], "role": "target", "split": SPLIT[map_id[6]], "variant": target["variant"],
             "unseen_class": bool(target["unseen_class"]), "center": ue_xy(target["position"]), "base_z": float(target["position"][2]), "top_z": float(target["top_z"]),
             "height_m": float(target["height_m"]), "footprint_m": [float(w), float(l)], "width_m": round(math.sqrt(w * l), 2),
-            "description_en": en, "site_en": site_en, "description_zh": zh, "site_zh": site_zh, "en": f"the {en} {site_en}", "zh": site_zh + zh, "plural": plural_of(en),
-            "draft": draft, "fixes": fixes, "relief_300m_m": target.get("relief_300m_m"),
+            "description_en": en, "site_en": site_en, "description_zh": zh, "site_zh": site_zh, "en": f"the {en} {site_en}", "zh": site_zh + zh, "en_short": f"the {en}", "zh_short": zh, "plural": plural_of(en),
+            "drafted": draft, "fixes": fixes, "relief_300m_m": target.get("relief_300m_m"),
             "preview_top": preview(folder, target["preview_top"]), "preview_takeoff": preview(folder, target["preview_takeoff"])}
 
 
@@ -113,6 +136,9 @@ def build():
         expected = r["cls"] not in seen if r["split"] == "dev" else r["cls"] not in seen | dev if r["split"] == "test" else False
         if r["unseen_class"] != expected:
             raise ValueError(f"{r['key']}: unseen_class {r['unseen_class']} but the class table says {expected}")
+    for r in targets:
+        if COMPASS_EN.search(r["en"]) or COMPASS_ZH.search(r["zh"]):
+            raise ValueError(f"{r['key']}: compass word in the name")
     keys = [(r["map"], r["key"]) for r in rows]
     if len(keys) != len(set(keys)):
         raise ValueError("duplicate keys")
@@ -126,7 +152,7 @@ def main():
     rows = build()
     Path(args.out).write_text(json.dumps(rows, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     targets = [r for r in rows if r["role"] == "target"]
-    print(f"{len(targets)} targets, {len(rows) - len(targets)} distractors; drafts {sum(r['draft'] for r in targets)}, fixed {sum(bool(r['fixes']) for r in targets)}, plural {sum(r['plural'] for r in targets)}")
+    print(f"{len(targets)} targets, {len(rows) - len(targets)} distractors; drafted {sum(r['drafted'] for r in targets)}, fixed {sum(bool(r['fixes']) for r in targets)}, plural {sum(r['plural'] for r in targets)}")
 
 
 if __name__ == "__main__":
