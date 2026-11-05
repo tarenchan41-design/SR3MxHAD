@@ -21,6 +21,10 @@ from experiments.protocol import code_version, write_json
 BLENDER = Path("/mnt/e/blender3dProjects")
 PROFILE = "desert_mountain"
 VSM_OFF = ["r.Shadow.Virtual.Enable 0"]
+# Stage 2 capture and K closed loop (protocol 17.5, 11/05): VSM off plus a milder conventional shadow bias, which removes the
+# triangle facets of the 6 m terrain mesh in slope shadows and keeps the shadows of fences and animals (runs/v3/stage2/shadow).
+# For K flights set SR3MXHAD_K_CONSOLE to the same list.
+STAGE2_CONSOLE = VSM_OFF + ["r.Shadow.CSMDepthBias 20", "r.Shadow.CSMSlopeScaleDepthBias 4.5"]
 # Capture settings of the v2 desert dataset (trajectory.json "capture"), front and down views only.
 CAPTURE = {"step_interval_cm": 200.0, "resolution": [512, 512], "fov_deg": 90.0, "exposure_bias": -10.0, "persistent_state": True, "warmup_frames": 3,
            "settle_ms": 50.0, "capture_passes": 2, "views": ["front", "down"], "modalities": ["rgb"], "environment_mode": "preserve_scene"}

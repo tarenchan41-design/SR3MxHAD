@@ -2,14 +2,14 @@
 
 The stage 2 capture renders with the same UEBackend as K, so G1 here asks whether a pose rendered the way the capture renders it
 (a fresh process, every route from step 0 in plan order, restarts by the memory policy of section 17.5) and the way K renders it
-(another process, routes in another order, a shuffled window of 32 poses) give the same policy output. Criterion of section 7,
+(another process, routes in another order, a shuffled window of 32 poses) give the same policy output. Console: STAGE2_CONSOLE. Criterion of section 7,
 unchanged: the median |dz change| of B < 2.4 cm and the change of the B - A dz error gap < 2.4 cm (A, B x 3 seeds, the v2 DINOv2
 models as in the desert G1 of section 14). Judged per map; the pooled numbers are reported too. On the test maps only changes
 are written, never A's or B's own errors.
 
 render:  per map, process 1 (capture way): UE checks of the plan candidates in order (as the bulk render will do), the 6 G1 routes
          in full, then the preview: 12 more routes, checked, start and end poses rendered (24 poses, front and down).
-         Process 2 (K way): the G1 windows, shuffled. VSM off in both. Resumes per map and part. Close the GUI editor first.
+         Process 2 (K way): the G1 windows, shuffled. STAGE2_CONSOLE in both (VSM off, shadow bias 20 / 4.5). Resumes per map and part. Close the GUI editor first.
 report:  G1 per map and pooled (needs PYTHONPATH with transformers, no simulator), preview contact sheets, UE check tallies.
 """
 import argparse
@@ -20,7 +20,7 @@ from pathlib import Path
 import numpy as np
 
 from experiments.protocol import code_version, read_json, write_json
-from experiments.v3_ue_check import CAPTURE, PROFILE, VSM_OFF, maps
+from experiments.v3_ue_check import CAPTURE, PROFILE, STAGE2_CONSOLE, maps
 
 G1 = {"median_abs_dz_change_m": .024, "gap_change_m": .024, "start": 13, "poses": 32, "routes_per_mode": 3, "seeds": (42, 43, 44)}
 PREVIEW_ROUTES = 12
@@ -81,7 +81,7 @@ def render_map(args, map_id, plan):
     windows = {r["id"]: window(rng) for r in candidates}  # fixed per route before any rendering
     selection_file = folder / "selection.json"
     if not (folder / "capture_done.json").exists():
-        with UEBackend(folder / "session_capture", PROFILE, package, CAPTURE, policy=MemoryPolicy(), console=VSM_OFF) as backend:
+        with UEBackend(folder / "session_capture", PROFILE, package, CAPTURE, policy=MemoryPolicy(), console=STAGE2_CONSOLE) as backend:
             g1, preview, checks = select(candidates, lambda r: check(backend, r))
             write_json(selection_file, {"g1": [r["id"] for r in g1], "preview": [r["id"] for r in preview], "checks": checks, "windows": {r["id"]: windows[r["id"]] for r in g1}})
             for route in g1:
@@ -97,18 +97,18 @@ def render_map(args, map_id, plan):
                 for t in (0, last):
                     for view, image in backend.render(route["positions"][t], float(route["yaws"][t])).items():
                         image.save(folder / f"preview_{route['id']}_{'start' if t == 0 else 'end'}_{view}.png")
-            write_json(folder / "capture_done.json", {"renders": backend.renders, "starts": backend.starts, "unexpected_exits": backend.unexpected_exits, "code": code_version()})
+            write_json(folder / "capture_done.json", {"console": STAGE2_CONSOLE, "renders": backend.renders, "starts": backend.starts, "unexpected_exits": backend.unexpected_exits, "code": code_version()})
         print(map_id, "capture process done", flush=True)
     if not (folder / "k_done.json").exists():
         chosen = read_json(selection_file)
         by_id = {r["id"]: r for r in candidates}
-        with UEBackend(folder / "session_k", PROFILE, package, CAPTURE, policy=MemoryPolicy(), console=VSM_OFF) as backend:
+        with UEBackend(folder / "session_k", PROFILE, package, CAPTURE, policy=MemoryPolicy(), console=STAGE2_CONSOLE) as backend:
             for route_id in reversed(chosen["g1"]):
                 route = by_id[route_id]
                 for t in chosen["windows"][route_id]:
                     for view, image in backend.render(route["positions"][t], float(route["yaws"][t])).items():
                         image.save(folder / f"k_{route_id}_{t:03d}_{view}.png")
-            write_json(folder / "k_done.json", {"renders": backend.renders, "starts": backend.starts, "unexpected_exits": backend.unexpected_exits, "code": code_version()})
+            write_json(folder / "k_done.json", {"console": STAGE2_CONSOLE, "renders": backend.renders, "starts": backend.starts, "unexpected_exits": backend.unexpected_exits, "code": code_version()})
         print(map_id, "K process done", flush=True)
 
 
@@ -194,7 +194,7 @@ def report(args):
             model = TerrainHAD(saved["identity"]["variant"], tokenizer, cached_only=True).to(device).eval()
             model.load_head_state(saved["head"])
             models[variant, seed] = (model, tokenizer)
-    summary = {"code": code_version(), "thresholds": {k: v for k, v in G1.items() if k != "seeds"}, "models": args.models, "capture": CAPTURE, "console": VSM_OFF, "maps": {}}
+    summary = {"code": code_version(), "thresholds": {k: v for k, v in G1.items() if k != "seeds"}, "models": args.models, "capture": CAPTURE, "console": STAGE2_CONSOLE, "maps": {}}
     pooled = {"A": [], "B": []}
     for map_id in args.maps:
         folder = out / map_id

@@ -480,6 +480,11 @@ H2 与不伤害按 §6 决策表解读；S2 通过时，"俯视单独优于前�
 - 批量渲染前做两项检查：
   - **K 的 G1**：判据同 §7，不变。每张新图取 6 条路线，各 32 个乱序位姿；采集和 K 都关 VSM。
   - **预览检查**：每张图 24 个位姿的前视和俯视，查看块状、条纹伪影。阶段 1 的 VSM 实验里，俯视单张像素差最大 18.7。有伪影就记录；严重时讨论是否调整传统阴影的参数。
+- **11/05 我决定：阴影偏移**。L_MTR_A 预览里，坡面阴影有 6 m 地形网格的三角块；阶段 1 的 desert 也有方块和锯齿阴影。
+  - 采集和 K 闭环的控制台命令统一为 `r.Shadow.Virtual.Enable 0`、`r.Shadow.CSMDepthBias 20`、`r.Shadow.CSMSlopeScaleDepthBias 4.5`（代码里是 `experiments.v3_ue_check.STAGE2_CONSOLE`；K 飞行时 `SR3MXHAD_K_CONSOLE` 设为同一组）。
+  - 试验在 `runs/v3/stage2/shadow/notes.md`：三角块和方块阴影都消失，栅栏、牛的影子保留；偏移 40 会去掉小物体的影子；提高阴影贴图分辨率没有效果。
+  - 旧设置下的 L_MTR_A G1 结果留在 `runs/v3/stage2/g1_vsm_only/`（B 的 |Δdz| 中位 0.34 cm，B−A 变化 0.02 cm，通过）。
+  - 地面纹理模糊、高空能看到地图边缘、前视偏亮这三点不处理，记为局限。
 - `PROTOCOL` = `sr3m_had_v3`（`SR3MXHAD_PROTOCOL=v3`），试点的定义不变。
 - 渲染时间估计约 10–18 小时：约 7 万个位姿，关 VSM 后实测 0.46–0.91 s/位姿；实测时不存 PNG，实际会更慢一些。
 
