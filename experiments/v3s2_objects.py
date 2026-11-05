@@ -69,7 +69,15 @@ def target_row(map_id, config_path, target):
             "height_m": float(target["height_m"]), "footprint_m": [float(w), float(l)], "width_m": round(math.sqrt(w * l), 2),
             "description_en": en, "site_en": site_en, "description_zh": zh, "site_zh": site_zh, "en": f"the {en} {site_en}", "zh": site_zh + zh, "plural": plural_of(en),
             "draft": draft, "fixes": fixes, "relief_300m_m": target.get("relief_300m_m"),
-            "preview_top": str(folder / target["preview_top"]), "preview_takeoff": str(folder / target["preview_takeoff"])}
+            "preview_top": preview(folder, target["preview_top"]), "preview_takeoff": preview(folder, target["preview_takeoff"])}
+
+
+def preview(folder, relative):
+    """Desert v3 previews sit in previews_v3/ although the configs say previews/."""
+    for candidate in (folder / relative, folder / relative.replace("previews/", "previews_v3/", 1)):
+        if candidate.exists():
+            return str(candidate)
+    raise FileNotFoundError(folder / relative)
 
 
 def distractor_rows(map_id, config):

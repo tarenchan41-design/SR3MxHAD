@@ -716,8 +716,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 122.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_helipad_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_helipad_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_helipad_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_helipad_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -751,8 +751,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 129.2,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_ruins_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_ruins_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_ruins_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_ruins_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -787,8 +787,8 @@
    "removed the repeated '路边'"
   ],
   "relief_300m_m": 82.3,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_fuel_station_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_fuel_station_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_fuel_station_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_fuel_station_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -820,8 +820,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 109.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_tent_camp_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_tent_camp_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_tent_camp_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_tent_camp_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -853,8 +853,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 114.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_container_yard_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_container_yard_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_container_yard_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_container_yard_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -886,8 +886,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 114.2,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_storage_tanks_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_storage_tanks_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_storage_tanks_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_storage_tanks_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -919,8 +919,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 115.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_solar_array_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_solar_array_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_solar_array_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_solar_array_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -952,8 +952,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 136.3,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_warehouse_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_warehouse_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_warehouse_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_warehouse_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -985,8 +985,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 76.4,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_small_houses_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_small_houses_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_small_houses_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_small_houses_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -1018,8 +1018,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 105.3,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_reservoir_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_reservoir_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_reservoir_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_reservoir_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -1051,8 +1051,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 113.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_radar_dome_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_radar_dome_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_radar_dome_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_radar_dome_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -1084,8 +1084,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 136.7,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_container_yard_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_container_yard_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_container_yard_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_container_yard_2_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -1117,8 +1117,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 87.6,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_storage_tanks_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_storage_tanks_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_storage_tanks_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_storage_tanks_2_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -1150,8 +1150,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 105.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_solar_array_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_solar_array_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_solar_array_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_solar_array_2_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -1183,8 +1183,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 107.6,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_pen_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews/DES_A_pen_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_pen_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_A/previews_v3/DES_A_pen_1_takeoff150m.png"
  },
  {
   "map": "L_DES_A_v3",
@@ -2119,8 +2119,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 292.2,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_helipad_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_helipad_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_helipad_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_helipad_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2154,8 +2154,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 203.6,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_tent_camp_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_tent_camp_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_tent_camp_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_tent_camp_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2190,8 +2190,8 @@
    "removed the repeated '路边'"
   ],
   "relief_300m_m": 210.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_fuel_station_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_fuel_station_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_fuel_station_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_fuel_station_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2223,8 +2223,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 186.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_ruins_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_ruins_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_ruins_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_ruins_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2256,8 +2256,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 202.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_pen_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_pen_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_pen_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_pen_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2289,8 +2289,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 198.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_container_yard_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_container_yard_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_container_yard_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_container_yard_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2322,8 +2322,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 228.3,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_storage_tanks_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_storage_tanks_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_storage_tanks_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_storage_tanks_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2355,8 +2355,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 252.4,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_solar_array_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_solar_array_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_solar_array_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_solar_array_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2388,8 +2388,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 277.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_warehouse_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_warehouse_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_warehouse_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_warehouse_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2421,8 +2421,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 305.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_small_houses_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_small_houses_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_small_houses_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_small_houses_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2454,8 +2454,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 284.1,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_reservoir_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_reservoir_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_reservoir_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_reservoir_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2487,8 +2487,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 199.3,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_radar_dome_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_radar_dome_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_radar_dome_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_radar_dome_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2520,8 +2520,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 267.7,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_greenhouses_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_greenhouses_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_greenhouses_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_greenhouses_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2553,8 +2553,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 129.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_sports_field_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_sports_field_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_sports_field_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_sports_field_1_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2586,8 +2586,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 278.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_storage_tanks_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_storage_tanks_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_storage_tanks_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_storage_tanks_2_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -2619,8 +2619,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 276.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_small_houses_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews/DES_B_small_houses_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_small_houses_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_B/previews_v3/DES_B_small_houses_2_takeoff150m.png"
  },
  {
   "map": "L_DES_B_v3",
@@ -3265,8 +3265,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 361.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_helipad_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_helipad_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_helipad_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_helipad_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3301,8 +3301,8 @@
    "removed the repeated '路边'"
   ],
   "relief_300m_m": 240.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_fuel_station_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_fuel_station_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_fuel_station_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_fuel_station_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3334,8 +3334,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 184.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_tent_camp_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_tent_camp_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_tent_camp_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_tent_camp_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3367,8 +3367,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 380.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_ruins_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_ruins_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_ruins_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_ruins_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3400,8 +3400,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 248.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_pen_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_pen_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_pen_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_pen_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3433,8 +3433,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 365.6,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_container_yard_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_container_yard_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_container_yard_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_container_yard_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3466,8 +3466,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 162.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_storage_tanks_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_storage_tanks_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_storage_tanks_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_storage_tanks_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3499,8 +3499,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 233.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_solar_array_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_solar_array_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_solar_array_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_solar_array_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3532,8 +3532,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 214.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_warehouse_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_warehouse_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_warehouse_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_warehouse_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3565,8 +3565,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 377.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_small_houses_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_small_houses_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_small_houses_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_small_houses_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3598,8 +3598,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 181.7,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_reservoir_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_reservoir_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_reservoir_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_reservoir_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3631,8 +3631,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 238.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_radar_dome_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_radar_dome_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_radar_dome_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_radar_dome_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3664,8 +3664,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 319.4,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_quarry_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_quarry_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_quarry_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_quarry_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3697,8 +3697,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 138.6,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_truck_depot_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_truck_depot_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_truck_depot_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_truck_depot_1_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3730,8 +3730,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 369.2,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_container_yard_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_container_yard_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_container_yard_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_container_yard_2_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -3763,8 +3763,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 327.3,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_radar_dome_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews/DES_C_radar_dome_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_radar_dome_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_C/previews_v3/DES_C_radar_dome_2_takeoff150m.png"
  },
  {
   "map": "L_DES_C_v3",
@@ -4509,8 +4509,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 99.7,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_helipad_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_helipad_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_helipad_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_helipad_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4544,8 +4544,8 @@
    "v2 target: placeholder text replaced by a draft"
   ],
   "relief_300m_m": 85.1,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_helipad_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_helipad_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_helipad_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_helipad_2_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4580,8 +4580,8 @@
    "removed the repeated '路边'"
   ],
   "relief_300m_m": 191.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_fuel_station_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_fuel_station_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_fuel_station_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_fuel_station_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4613,8 +4613,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 288.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_tent_camp_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_tent_camp_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_tent_camp_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_tent_camp_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4646,8 +4646,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 84.7,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_ruins_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_ruins_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_ruins_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_ruins_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4679,8 +4679,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 80.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_pen_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_pen_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_pen_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_pen_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4712,8 +4712,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 74.1,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_container_yard_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_container_yard_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_container_yard_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_container_yard_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4745,8 +4745,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 77.6,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_storage_tanks_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_storage_tanks_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_storage_tanks_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_storage_tanks_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4778,8 +4778,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 72.4,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_solar_array_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_solar_array_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_solar_array_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_solar_array_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4811,8 +4811,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 84.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_warehouse_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_warehouse_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_warehouse_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_warehouse_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4844,8 +4844,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 132.0,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_small_houses_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_small_houses_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_small_houses_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_small_houses_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4877,8 +4877,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 126.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_reservoir_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_reservoir_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_reservoir_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_reservoir_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4910,8 +4910,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 96.5,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_radar_dome_1_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_radar_dome_1_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_radar_dome_1_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_radar_dome_1_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4943,8 +4943,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 125.8,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_warehouse_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_warehouse_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_warehouse_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_warehouse_2_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -4976,8 +4976,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 168.7,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_reservoir_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_reservoir_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_reservoir_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_reservoir_2_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
@@ -5009,8 +5009,8 @@
   "draft": false,
   "fixes": [],
   "relief_300m_m": 94.9,
-  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_ruins_2_top60m.png",
-  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews/DES_D_ruins_2_takeoff150m.png"
+  "preview_top": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_ruins_2_top60m.png",
+  "preview_takeoff": "/mnt/e/blender3dProjects/desert/DES_D/previews_v3/DES_D_ruins_2_takeoff150m.png"
  },
  {
   "map": "L_DES_D_v3",
