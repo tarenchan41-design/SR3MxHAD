@@ -211,3 +211,51 @@ def test_targets_far_below_are_rejected_before_they_reach_the_bottom_edge():
     reasons = [propose(deep, [deep], lambda xy: np.where(np.hypot(*np.atleast_2d(xy).T) < 40, -155., 0.), Design(), rng)[1] for _ in range(40)]
     assert "target near the bottom of the view" in reasons
 
+
+
+def test_rule_8_rejects_a_same_class_object_near_the_path_but_not_other_classes_or_far_ones():
+    from sr3m.routes_v3 import same_class_near
+    target = building("a", center=(200., 0.))
+    path = np.c_[np.linspace(0., 200., 101), np.zeros(101)]
+    near = dict(building("b", center=(100., 45.)), footprint_m=[20., 20.])  # edge 35 m from the path
+    far = dict(building("c", center=(100., 55.)), footprint_m=[20., 20.])  # edge 45 m
+    assert same_class_near(target, [target, near], path, 40.) == "b"
+    assert same_class_near(target, [target, far], path, 40.) is None
+    assert same_class_near(target, [target, dict(near, cls="hangar")], path, 40.) is None
+    beside_start = dict(building("d", center=(-30., 0.)), width_m=10.)  # behind the start, still within 40 m of it
+    assert same_class_near(target, [target, beside_start], path, 40.) == "d"
+
+
+def test_rule_8_in_generation_and_distractors_are_never_targets():
+    target = building("a", center=(0., 0.))
+    beside = dict(building("d", center=(0., 30.)), role="distractor", width_m=10.)  # every path ends at the target, 25 m from its edge
+    routes, rejected = generate([target, beside], flat, 5, Design(same_class_clear_m=40.), np.random.default_rng(0), tries_per_route=100)
+    assert routes == [] and rejected.get("same class near the path", 0) > 0
+    routes, _ = generate([target, dict(beside, cls="hangar")], flat, 10, Design(same_class_clear_m=40.), np.random.default_rng(0))
+    assert len(routes) == 10 and {r["object"] for r in routes} == {"a"}
+
+
+def test_hold_deviation_is_the_ground_change_from_the_start():
+    from sr3m.routes_v3 import hold_deviation
+    median, mean = hold_deviation([10., 10., 16., 20., 30.])
+    assert median == 6. and np.isclose(mean, (0 + 0 + 6 + 10 + 20) / 5)
+
+
+def test_rule_9_quota_holds_for_terrain_following_routes_and_gives_up_on_flat_ground():
+    obj = building(center=(0., 0.))
+    slope = lambda xy: .15 * np.atleast_2d(xy)[:, 0]
+    design = Design(follow_dev_share=.5, follow_dev_min_m=5.)
+    routes, rejected = generate([obj], slope, 30, design, np.random.default_rng(0))
+    follow = [r for r in routes if r["mode"] == "follow"]
+    assert len(routes) == 30 and follow and sum(r["hold_dev_median_m"] >= 5. for r in follow) >= len(follow) / 2
+    assert "rule 9 quota gave up at route" not in rejected
+    routes, rejected = generate([obj], flat, 30, Design(follow_dev_share=.5, relief_patience=5), np.random.default_rng(0))
+    assert len(routes) == 30 and rejected["follow route too flat"] >= 5 and "rule 9 quota gave up at route" in rejected
+
+
+def test_an_explicit_plural_flag_wins_over_the_head_noun_guess():
+    rng = np.random.default_rng(0)
+    rows = dict(building(), en="the rows of four long white arched greenhouses on a valley terrace", plural=True)
+    assert all("them" in instruction(rows, "left", "hold", rng)[0] for _ in range(20))
+    dome = dict(building(), en="the white radar dome on a small grey building on a mountain shoulder", plural=False)
+    assert all(" are " not in t and "them" not in t for t in (instruction(dome, "left", "hold", rng)[0] for _ in range(20)))

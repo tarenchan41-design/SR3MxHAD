@@ -23,7 +23,9 @@ FIT_MAPS = ("L_MTN_A", "L_MTN_D", "L_DES_A", "L_DES_D")
 EVAL_MAPS = ("L_MTN_B", "L_DES_B")
 DESIGNS = {"pursuit": Design(), "pursuit_kick": Design(kick_every=25.), "rotate_kick": Design(kick_every=25., rotate_first=True), "pursuit_kick_often": Design(kick_every=10.),
            "kick_start": Design(kick_every=25., start_kick_steps=3), "kick_start_relief": Design(kick_every=25., start_kick_steps=3, relief_share=.5),
-           "kick_start2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.)), "kick_start2_relief": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5)}
+           "kick_start2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.)), "kick_start2_relief": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5),
+           # Stage 2 (section 17.3): the stage 1 design plus rule 8 (no same class within 40 m of the path) and rule 9 (follow routes: half with hold deviation >= 5 m).
+           "kick_start2_relief_s2": Design(kick_every=25., start_kick_steps=6, start_kicks=2, kick_heading_deg=(5., 30.), relief_share=.5, same_class_clear_m=40., follow_dev_share=.5, follow_dev_min_m=5.)}
 WORDS = ("left", "ahead", "right")
 GRID_M = 4.
 COARSE_STEP = math.radians(15)
@@ -33,13 +35,29 @@ GATES = {"response_deg": -.1, "pose_reach": .20, "clean_sign": .70, "clean_corr"
 
 
 class Ground:
-    """Bilinear height from a cached grid of the map's terrain export; NaN outside it. Fast enough for many rollouts."""
+    """Bilinear height from a cached grid of the map's terrain export; NaN outside it. Fast enough for many rollouts.
+
+    Stage 2 maps (L_MTR_A-D, L_DES_A-D_v3) come from the Blender .r16 heightmap in UE metres (x east, y south), the same
+    conversion the UE import check matched against UE; terrain only, no objects or trees.
+    """
 
     def __init__(self, map_id, cache):
         path = Path(cache) / f"{map_id}.npz"
         if path.exists():
             d = np.load(path)
             self.x0, self.y0, self.z = float(d["x0"]), float(d["y0"]), d["z"]
+            return
+        from experiments.v3_ue_check import Heightmap, maps
+        stage2 = maps()
+        if map_id in stage2:
+            _, config_path, heightmap_path = stage2[map_id]
+            heightmap = Heightmap(heightmap_path, json.load(open(config_path, encoding="utf-8"))["ue5_landscape"])
+            far_x, far_y = heightmap.x0 + (heightmap.v.shape[1] - 1) * heightmap.sx, heightmap.y0 + (heightmap.v.shape[0] - 1) * heightmap.sy
+            xs, ys = np.arange(heightmap.x0, far_x - 1e-6, GRID_M), np.arange(heightmap.y0, far_y - 1e-6, GRID_M)
+            gx, gy = np.meshgrid(xs, ys, indexing="ij")
+            self.x0, self.y0, self.z = float(xs[0]), float(ys[0]), heightmap.many(gx, gy).astype(np.float32)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            np.savez_compressed(path, x0=self.x0, y0=self.y0, z=self.z)
             return
         root = ROOTS[map_id[:5]]
         spec = importlib.util.spec_from_file_location("ground_" + map_id, root / "scripts/terrain_model.py")
@@ -215,19 +233,20 @@ def route_stats(routes, rejected):
     turn = [float(np.degrees(np.abs(r["actions"][:, 3]).sum())) for r in routes]
     return {"routes": len(routes), "rejected": rejected, "steps_median": float(np.median([len(r["actions"]) for r in routes])), "steps_total": int(sum(len(r["actions"]) for r in routes)), "distance_median": float(np.median([r["distance"] for r in routes])), "bearing_median": float(np.median(bearing)),
             "turn_median_deg": float(np.median(turn)), "relief_median_m": float(np.median([r["relief_m"] for r in routes])), "relief_p90_m": float(np.percentile([r["relief_m"] for r in routes], 90)), "follow_climb_median_m": float(np.median([r["climb_m"] for r in routes if r["mode"] == "follow"] or [0.])),
+            "follow_dev_median_m": float(np.median([r["hold_dev_median_m"] for r in routes if r["mode"] == "follow"] or [float("nan")])) if routes and "hold_dev_median_m" in routes[0] else None,
             "follow": sum(r["mode"] == "follow" for r in routes), "relief15": sum(r["relief_m"] >= 15 for r in routes), "words": {w: sum(r["word"] == w for r in routes) for w in WORDS}, "objects_used": len({r["object"] for r in routes}), "classes_used": len({r["cls"] for r in routes})}
 
 
-def test_design(name, design, objects, grounds, args, device):
+def test_design(name, design, objects, grounds, args, device, fit_maps=FIT_MAPS, eval_maps=EVAL_MAPS):
     rng = np.random.default_rng(args.seed)
     fit_routes, eval_routes, stats = [], [], {}
-    for map_id in FIT_MAPS + EVAL_MAPS:
-        routes, rejected = generate([o for o in objects if o["map"] == map_id], grounds[map_id], args.fit_routes if map_id in FIT_MAPS else args.eval_routes, design, rng)
+    for map_id in fit_maps + eval_maps:
+        routes, rejected = generate([o for o in objects if o["map"] == map_id], grounds[map_id], args.fit_routes if map_id in fit_maps else args.eval_routes, design, rng)
         stats[map_id] = route_stats(routes, rejected)
-        (fit_routes if map_id in FIT_MAPS else eval_routes).extend(routes)
+        (fit_routes if map_id in fit_maps else eval_routes).extend(routes)
     clean = dataclasses.replace(design, kick_every=0.)
     clean_routes = []
-    for map_id in EVAL_MAPS:
+    for map_id in eval_maps:
         clean_routes.extend(generate([o for o in objects if o["map"] == map_id], grounds[map_id], args.eval_routes, clean, rng)[0])
     train, val, on_path = Batch(fit_routes), Batch(eval_routes), Batch(clean_routes)
     classes = {}

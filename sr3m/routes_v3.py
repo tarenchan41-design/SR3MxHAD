@@ -35,6 +35,9 @@ class Design:
     start_kicks heading kicks always land within the first start_kick_steps, so that a turn so far says less about the turn to come.
     relief_share of a map's routes must cross at least relief_min_m of ground relief, or the height question has nothing to measure;
     after relief_patience flat proposals in a row the map is taken to have no more, and the shortfall is reported.
+    same_class_clear_m > 0 is rule 8 (section 17.3): no other object of the target's class within that distance of the expert path,
+    start included. follow_dev_share > 0 is rule 9: that share of a map's terrain-following routes must have a hold deviation
+    (hold_deviation) of at least follow_dev_min_m; it gives up the same way as the relief quota.
     """
     gain: float = .25
     max_yaw_deg: float = 5.
@@ -54,6 +57,9 @@ class Design:
     relief_share: float = 0.
     relief_min_m: float = 15.
     relief_patience: int = 300
+    same_class_clear_m: float = 0.
+    follow_dev_share: float = 0.
+    follow_dev_min_m: float = 5.
 
 
 def bearing_to(position, yaw, target):
@@ -108,6 +114,32 @@ def ambiguous(target, others, position, yaw):
         if abs(math.degrees(bearing)) <= FRONT_HALF_DEG and direction_word(bearing) == word:
             return True
     return False
+
+
+def footprint_radius(obj):
+    """Half the longer side when the footprint is known, else half the width."""
+    return max(obj["footprint_m"]) / 2 if obj.get("footprint_m") else obj["width_m"] / 2
+
+
+def same_class_near(target, others, path_xy, clear_m):
+    """Rule 8: the nearest other object of the target's class comes within clear_m of the path (edge distance), or None."""
+    path_xy = np.atleast_2d(path_xy)
+    for other in others:
+        if other["key"] == target["key"] or other["cls"] != target["cls"]:
+            continue
+        gap = float(np.hypot(*(path_xy - np.asarray(other["center"][:2])).T).min()) - footprint_radius(other)
+        if gap < clear_m:
+            return other["key"]
+    return None
+
+
+def hold_deviation(ground_below):
+    """Holding the takeoff height over the expert's horizontal path: |AGL_t - AGL_0| = |ground_t - ground_0| per step.
+
+    Returns the median over steps (rule 9 and G0-6) and the mean (E_hold of the expert path, section 17.7).
+    """
+    dev = np.abs(np.asarray(ground_below, dtype=float) - float(ground_below[0]))
+    return float(np.median(dev)), float(dev.mean())
 
 
 def pursuit_yaw(position, yaw, target, design):
@@ -166,13 +198,13 @@ def hold_height(z):
 
 def instruction(obj, word, mode, rng):
     frame = int(rng.integers(len(FRAMES["en"])))
-    plural = obj["en"].split(" with ")[0].split(" of ")[0].split()[-1] in PLURAL
+    plural = obj["plural"] if "plural" in obj else obj["en"].split(" with ")[0].split(" of ")[0].split()[-1] in PLURAL
     en = FRAMES["en"][frame].format(what=obj["en"], where=WHERE[word][0], height=HEIGHT[mode][0], it="them" if plural else "it", **{"is": "are" if plural else "is"})
     return en[0].upper() + en[1:], FRAMES["zh"][frame].format(what=obj["zh"], where=WHERE[word][1], height=HEIGHT[mode][1])
 
 
-def propose(obj, others, ground, design, rng, require_relief=False):
-    """One route for this object, or (None, reason). Rules follow protocol section 13."""
+def propose(obj, others, ground, design, rng, require_relief=False, require_follow_dev=False):
+    """One route for this object, or (None, reason). Rules follow protocol section 13, plus rules 8 and 9 of section 17.3 when the design sets them."""
     low, high = distance_range(obj["width_m"], design)
     if high < low:
         return None, "too small"
@@ -216,30 +248,50 @@ def propose(obj, others, ground, design, rng, require_relief=False):
     relief = float(below.max() - below.min())
     if require_relief and relief < design.relief_min_m:
         return None, "too flat"
+    if design.same_class_clear_m > 0 and same_class_near(obj, others, positions[:, :2], design.same_class_clear_m):
+        return None, "same class near the path"
+    dev_median, dev_mean = hold_deviation(below)
+    if require_follow_dev and mode == "follow" and dev_median < design.follow_dev_min_m:
+        return None, "follow route too flat"
     en, zh = instruction(obj, direction_word(bearing), mode, rng)
     return dict(map=obj["map"], object=obj["key"], cls=obj["cls"], mode=mode, agl=agl, distance=distance, bearing=bearing, word=direction_word(bearing), target=list(target), top_z=obj["top_z"], width_m=obj["width_m"],
-                positions=positions, yaws=yaws, actions=actions, kicks=kicks, relief_m=relief, climb_m=float(positions[:, 2].max() - positions[:, 2].min()), instruction=en, instruction_zh=zh), None
+                positions=positions, yaws=yaws, actions=actions, kicks=kicks, relief_m=relief, climb_m=float(positions[:, 2].max() - positions[:, 2].min()),
+                hold_dev_median_m=dev_median, hold_dev_mean_m=dev_mean, unseen_class=bool(obj.get("unseen_class", False)), instruction=en, instruction_zh=zh), None
 
 
 def generate(objects, ground, count, design, rng, tries_per_route=60):
-    """Objects are drawn evenly so a map's rare classes are not crowded out. Returns routes and the count of each rejection."""
+    """Targets are drawn evenly so a map's rare classes are not crowded out. Returns routes and the count of each rejection.
+
+    Objects with role "distractor" are never targets but count for the ambiguity check and rule 8.
+    """
+    targets = [o for o in objects if o.get("role", "target") == "target"]
     routes, rejected = [], {}
-    order = list(rng.permutation(len(objects)))
-    i = tries = hilly = flat_streak = 0
+    order = list(rng.permutation(len(targets)))
+    i = tries = hilly = flat_streak = follows = follow_ok = dev_streak = 0
     quota_open = design.relief_share > 0
+    dev_open = design.follow_dev_share > 0
     while len(routes) < count and tries < count * tries_per_route:
-        obj = objects[order[i % len(order)]]
+        obj = targets[order[i % len(order)]]
         i += 1
         tries += 1
-        route, reason = propose(obj, objects, ground, design, rng, require_relief=quota_open and hilly < design.relief_share * (len(routes) + 1))
+        route, reason = propose(obj, objects, ground, design, rng, require_relief=quota_open and hilly < design.relief_share * (len(routes) + 1),
+                                require_follow_dev=dev_open and follow_ok < design.follow_dev_share * (follows + 1))
         if route is None:
             rejected[reason] = rejected.get(reason, 0) + 1
             flat_streak = flat_streak + 1 if reason == "too flat" else flat_streak
-            if flat_streak >= design.relief_patience:
+            dev_streak = dev_streak + 1 if reason == "follow route too flat" else dev_streak
+            if quota_open and flat_streak >= design.relief_patience:
                 quota_open = False
                 rejected["relief quota gave up at route"] = len(routes)
+            if dev_open and dev_streak >= design.relief_patience:
+                dev_open = False
+                rejected["rule 9 quota gave up at route"] = len(routes)
             continue
         routes.append(route)
         flat_streak = 0
         hilly += route["relief_m"] >= design.relief_min_m
+        if route["mode"] == "follow":
+            dev_streak = 0
+            follows += 1
+            follow_ok += route["hold_dev_median_m"] >= design.follow_dev_min_m
     return routes, rejected

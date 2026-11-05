@@ -54,6 +54,19 @@ class Heightmap:
         v = self.v[r, c] * (1 - a) * (1 - b) + self.v[r, c + 1] * a * (1 - b) + self.v[r + 1, c] * (1 - a) * b + self.v[r + 1, c + 1] * a * b
         return self.z0 + (v - 32768) * self.sz / 128
 
+    def many(self, x, y):
+        """Vectorised __call__; NaN outside the heightmap."""
+        x, y = np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)
+        u, w = (x - self.x0) / self.sx, (y - self.y0) / self.sy
+        c, r = np.floor(u).astype(int), np.floor(w).astype(int)
+        n = self.v.shape[0]
+        inside = (c >= 0) & (r >= 0) & (c < n - 1) & (r < n - 1)
+        out = np.full(x.shape, np.nan)
+        c, r, a, b = c[inside], r[inside], (u - np.floor(u))[inside], (w - np.floor(w))[inside]
+        v = self.v[r, c] * (1 - a) * (1 - b) + self.v[r, c + 1] * a * (1 - b) + self.v[r + 1, c] * (1 - a) * b + self.v[r + 1, c + 1] * a * b
+        out[inside] = self.z0 + (v - 32768) * self.sz / 128
+        return out
+
 
 def ue_xy(blender_xy):
     return float(blender_xy[0]), -float(blender_xy[1])
