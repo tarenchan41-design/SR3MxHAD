@@ -78,7 +78,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
   - 阶段 2 起**关 VSM**；
   - 物体类别跨图重复，没见过的类别单独划分。
   - 阶段 2 规格 protocol.md §17、STOP 探针第二轮 §18：11/04 我审完全部待审项，按草案定稿。W1–W3 在 3070 上跑（`experiments/v3_stop_probe2.py`）；W4 用 Qwen3-VL 在 5090 上跑（`experiments/v3_stop_vlm.py`）。
-  - 11/04 §18 结果：W1–W3 都没过（软标签 σ=5 +2.8，CI 跨 0；RemoteCLIP −11.3）。阈值跨图迁移不稳定是主要问题，mountain 比 desert 难得多（同类物体多）。阶段 2 沿用 V1 的 STOP；W4 等 5090 结果。建模提示词在 `docs/v3_stage2_build_prompt.md`。
+  - 11/04 §18 结果：W1–W3 都没过（软标签 σ=5 +2.8，CI 跨 0；RemoteCLIP −11.3）。阈值跨图迁移不稳定是主要问题，mountain 比 desert 难得多（同类物体多）。阶段 2 沿用 V1 的 STOP。W4（Qwen3-VL-8B 零样本，我在 5090 上跑）也不过：15.5%，−34.5（CI [−40, −29]），远处误报多、阈值被推到 0.94 以上；现成图文模型都不能直接解决俯视 STOP，可作为 benchmark 发现。建模提示词在 `docs/v3_stage2_build_prompt.md`。
   - 11/04 山地 4 张图和沙漠 4 张增补已在 Blender 建好（自检 `E:\blender3dProjects\mountain\build_report.md`），我按 §17 独立核对通过；沙漠 v2 原文件未动。同日按我的要求把 `infra/ue-restart` 合并进 `data/v3-design`（`2b75d0b`，未推送）。关 VSM 靠环境变量 `SR3MXHAD_K_CONSOLE='["r.Shadow.Virtual.Enable 0"]'`，默认仍关闭，阶段 2 的采集和闭环脚本都要设置。
   - 5090 由我手动 clone 并运行，agent 每次给出具体命令；推送 GitHub 晚点再说。
 - 10/28 逐路线分析（`runs/terrain_v2_dino/decision/per_route.md`，论文图 `fig_paper/`，val_unseen 已冻结报告，仅描述）：俯视相对增益不随坡度变（中位 13–17%），绝对增益随坡度变大（2.4→4.7→7.6 cm）；大幅负增益只在平缓路线；低空收益最大（mountain 低空 27%），高空小（desert 高空 4 条 −1%）——事后假设，需在新测试集上预注册才能写成结论。
