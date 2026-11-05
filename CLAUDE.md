@@ -47,7 +47,7 @@ SR3M（以地形为核心的无人机 VLN 仿真 benchmark）与 HAD（前视 + 
   - checkpoint 和 STOP 阈值在训练图的 val_seen 上选；
   - 开发图最多查看 3 次，每次在 §17.9 登记；
   - 冻结全部配置后，测试图只打开一次。
-- `PROTOCOL` 由环境变量 `SR3MXHAD_PROTOCOL` 选（试点 `v3_pilot`，阶段 2 `v3`），绑定 prepared 数据与特征缓存；不改已有定义，除非我同意。诊断变体（N、B0、B4）定义在 `PROTOCOL` 之外。
+- `PROTOCOL` 由环境变量 `SR3MXHAD_PROTOCOL` 选（v2 默认，试点 `v3_pilot`；阶段 2 的 `v3` 按 §17.5 定义，尚未写进代码），绑定 prepared 数据与特征缓存；不改已有定义，除非我同意。诊断变体（N、B0、B4）定义在 `PROTOCOL` 之外。
 - run 身份绑定 git commit，**训练或渲染进行中不要提交代码**。
 - 闭环：专家回放和 G1 全部通过后才能跑模型；离线预览和单元测试不等于完成真实 UE 闭环。
 - 判据在运行前写进 protocol 并提交；看到结果后改判据要明确记录。
