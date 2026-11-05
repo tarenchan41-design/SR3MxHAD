@@ -131,7 +131,10 @@ class Server:
         x, y, z = position_cm
         hit = unreal.SystemLibrary.line_trace_single(self.world, unreal.Vector(x, y, z + 200000.), unreal.Vector(x, y, z - 500000.),
                                                      unreal.TraceTypeQuery.TRACE_TYPE_QUERY1, False, [], unreal.DrawDebugTrace.NONE, True)
-        return {"ground_z_cm": float(hit.to_tuple()[5].z) if hit is not None else None}
+        if hit is None:
+            return {"ground_z_cm": None, "actor": None}
+        values = hit.to_tuple()
+        return {"ground_z_cm": float(values[5].z), "actor": values[9].get_actor_label() if values[9] else None}  # actor: for import checks
 
     def memory(self):
         return memory_now()
