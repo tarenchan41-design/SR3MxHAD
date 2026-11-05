@@ -16,7 +16,9 @@ TOOLS = "E:/UnrealProjects/firstProject/Automation/ue_scripts"
 # The projects the dataset was captured in, by run-context profile. Loaded read-only: nothing here saves a package.
 PROJECTS = {"mountain_base": "E:/UnrealProjects/mountain_base/military_mountains/military_mountains.uproject",
             "forests_new": "E:/UnrealProjects/forests_new/military_forests/military_forests.uproject",
-            "desert": "E:/UnrealProjects/desert/desert.uproject"}
+            "desert": "E:/UnrealProjects/desert/desert.uproject",
+            # Stage 2 (protocol section 17): v2 desert levels, L_DES_*_v3 and the rebuilt mountain L_MTR_A-D in one project.
+            "desert_mountain": "E:/UnrealProjects/DesertMountain/DesertMountain.uproject"}
 SWEEP = {"interval_cm": 50., "radius_cm": 100.}  # The capture tool's collision check.
 MAX_UNEXPECTED_EXITS = 5
 
