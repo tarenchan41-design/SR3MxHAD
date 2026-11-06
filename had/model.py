@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 import torch
 from torch import nn
 import torch.nn.functional as F
+from PIL import Image
 from torchvision import transforms
 from torchvision.transforms import InterpolationMode
 from had.vendor.encoders import TextEncoder
@@ -59,6 +60,20 @@ def image_transform():
     # Whole frame resized (no crop) so the image layout the slope depends on is kept.
     return transforms.Compose([transforms.Resize((224, 224), interpolation=InterpolationMode.BICUBIC, antialias=True),
                                transforms.ToTensor(), transforms.Normalize([.485, .456, .406], [.229, .224, .225])])
+
+
+MOSAIC_VIEW = 224
+
+
+def mosaic_image(front, down):
+    """AerialVLA-style single input (docs/d4_baseline_spec.md): each view PIL-bicubic resized to 224x224, front above
+    down (224 wide, 448 high). image_transform() then squeezes the whole mosaic to 224x224 without cropping, as
+    OpenVLA's resize-naive preprocessing does, so each view keeps 224x112 and the top/bottom patch rows hold front/down."""
+    size = (MOSAIC_VIEW, MOSAIC_VIEW)
+    out = Image.new("RGB", (MOSAIC_VIEW, 2 * MOSAIC_VIEW))
+    out.paste(front.convert("RGB").resize(size, Image.BICUBIC), (0, 0))
+    out.paste(down.convert("RGB").resize(size, Image.BICUBIC), (0, MOSAIC_VIEW))
+    return out
 
 
 def pooled_tokens(hidden, grid=2):
