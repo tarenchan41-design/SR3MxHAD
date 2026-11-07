@@ -10,7 +10,7 @@ import time
 import numpy as np
 import torch
 from experiments.protocol import DIAGNOSTIC_VARIANTS, MAIN_VARIANTS, PROTOCOL, TERRAIN, PreparedSplit, code_version, read_features, read_json, write_json
-from had.model import GRIDS, TerrainHAD, feature_dim
+from had.model import GRIDS, VARIANTS, TerrainHAD, feature_dim
 from had.tokenizer import Tokenizer
 from experiments.metrics import calibrate_stop, evaluate
 
@@ -49,6 +49,28 @@ def with_hold_copies(ds, tokens, tokenizer):
     out.n = len(out.feature_index)
     extra = torch.tensor([tokenizer.encode(r["instruction"])["input_ids"] for r in out.routes[len(ds.routes):]], dtype=torch.long)
     return out, torch.cat([tokens, extra])
+
+
+SUBSET_SEED = 20261107
+
+
+def route_subset(ds, fraction, seed=SUBSET_SEED):
+    """Data curve (protocol 17.6): keep round(fraction * n), at least one, of each target's train routes, drawn with a fixed
+    seed, so every target stays in training. Features keep their rows through feature_index; statistics, tokenizer and
+    the val_seen selection stay those of the full preparation."""
+    rng = np.random.default_rng(seed)
+    groups = {}
+    for i, r in enumerate(ds.routes):
+        groups.setdefault(r["route_group_id"], []).append(i)
+    keep = sorted(i for g in sorted(groups) for i in rng.permutation(groups[g])[:max(1, round(fraction * len(groups[g])))].tolist())
+    rows = np.concatenate([np.arange(ds.routes[i]["offset"], ds.routes[i]["offset"] + ds.routes[i]["count"]) for i in keep])
+    out = copy.copy(ds)
+    out.routes = [ds.routes[i] for i in keep]
+    out.arrays = {k: v[rows] for k, v in ds.arrays.items()}
+    out.feature_index = rows
+    out.route_index = np.repeat(np.arange(len(keep)), [ds.routes[i]["count"] for i in keep])
+    out.n = len(rows)
+    return out, [ds.routes[i]["route_id"] for i in keep]
 
 
 def batch_inputs(ds, features, tokens, indices, views, device):
@@ -102,9 +124,11 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
                 "protocol": PROTOCOL, "statistics": statistics, "tokenizer": tokenizer.to_dict(), "code": args.code_version,
                 "environment": {"torch": str(torch.__version__), "cuda": torch.version.cuda,
                                 "gpu": torch.cuda.get_device_name() if args.device.startswith("cuda") else None}}
+    if getattr(args, "train_subset", None):
+        identity["train_subset"] = args.train_subset
     if (out / "completion.json").exists():
         old = read_json(out / "run.json")
-        if any(old.get(k) != identity[k] for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code")):
+        if any(old.get(k) != identity.get(k) for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code", "train_subset")):
             raise ValueError("Existing run uses a different experiment")
         print(f"already completed {out.name}", flush=True); return
     random.seed(seed); np.random.seed(seed); torch.manual_seed(seed)
@@ -116,7 +140,7 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
     if (out / "last.pt").exists():
         state = torch.load(out / "last.pt", map_location="cpu", weights_only=True)
         old = state["identity"]
-        if any(old.get(k) != identity[k] for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code")):
+        if any(old.get(k) != identity.get(k) for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code", "train_subset")):
             raise ValueError("Resume identity mismatch")
         model.load_head_state(state["head"]); optimizer.load_state_dict(state["optimizer"])
         for item in optimizer.state.values():
@@ -127,7 +151,7 @@ def train_run(args, variant, seed, data, features, tokenizer, tokens, statistics
         if args.device.startswith("cuda"): torch.cuda.set_rng_state_all(state["cuda_rng"])
     elif (out / "run.json").exists():
         old = read_json(out / "run.json")
-        if any(old.get(k) != identity[k] for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code")):
+        if any(old.get(k) != identity.get(k) for k in ("variant", "seed", "augment", "prepared", "protocol", "statistics", "tokenizer", "code", "train_subset")):
             raise ValueError("Interrupted first epoch belongs to another run")
         if (out / "training.jsonl").exists() and (out / "training.jsonl").stat().st_size:
             raise ValueError("Completed epoch log exists but resume checkpoint is missing")
@@ -193,14 +217,21 @@ def train(args):
     torch.set_num_threads(4)
     args.code_version = code_version()
     data = {s: PreparedSplit(args.prepared, s) for s in ("train", "val_seen")}
-    widths = {tuple(feature_dim(GRIDS.get(v, {}).get(view, 2)) for view in ("front", "down")) for v in args.variants}
-    if len(widths) != 1:
-        raise ValueError("Variants trained together must read features of the same widths")
-    widths = dict(zip(("front", "down"), widths.pop()))
+    widths = {}  # the views the variants read and their widths; variants trained together must agree on each view
+    for v in args.variants:
+        for view in VARIANTS[v]:
+            if widths.setdefault(view, feature_dim(GRIDS.get(v, {}).get(view, 2))) != feature_dim(GRIDS.get(v, {}).get(view, 2)):
+                raise ValueError("Variants trained together must read features of the same widths")
+    widths = widths or None  # N reads no view; the default cache check still runs
     features = {s: read_features(args.cache, s, ds, widths)[0] for s, ds in data.items()}
     tokenizer = Tokenizer.load(Path(args.prepared) / "tokenizer.json")
     tokens = {s: token_rows(ds, tokenizer) for s, ds in data.items()}
     statistics = read_json(Path(args.prepared) / "statistics.json")
+    if getattr(args, "train_fraction", 1.) < 1:
+        data["train"], kept = route_subset(data["train"], args.train_fraction)
+        tokens["train"] = token_rows(data["train"], tokenizer)
+        args.train_subset = {"fraction": args.train_fraction, "seed": SUBSET_SEED, "routes": kept}
+        print(f"train subset: {len(kept)} routes, {data['train'].n} observations", flush=True)
     if args.augment == "hold":
         data["train"], tokens["train"] = with_hold_copies(data["train"], tokens["train"], tokenizer)
     baselines={name:evaluate(data["val_seen"],np.broadcast_to(action,(data["val_seen"].n,4)),statistics)
@@ -218,5 +249,6 @@ if __name__ == "__main__":
     p.add_argument("--variants", nargs="+", choices=("A", "B", "C", *DIAGNOSTIC_VARIANTS), default=list(MAIN_VARIANTS))
     p.add_argument("--seeds", nargs="+", type=int, default=[42, 43, 44]); p.add_argument("--device", default="cuda")
     p.add_argument("--augment", choices=("hold",), default=None, help="R1 counterfactual HOLD copies (docs/protocol.md §12)")
+    p.add_argument("--train-fraction", type=float, default=1., help="data curve (protocol 17.6): share of each target's train routes")
     train(p.parse_args())
 

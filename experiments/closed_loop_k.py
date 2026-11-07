@@ -83,7 +83,7 @@ def fly(backend, positions, yaws, policy=None):
 def load_policy(checkpoint, route, device):
     """Frozen model and its val_seen STOP threshold. Imported here: transformers is not in the shared venv."""
     import torch
-    from had.model import TerrainHAD, image_transform
+    from had.model import TerrainHAD, image_transform, mosaic_image
     from had.tokenizer import Tokenizer
     saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
     selection = read_json(Path(checkpoint).parent / "selection.json")
@@ -96,7 +96,8 @@ def load_policy(checkpoint, route, device):
     transform, threshold = image_transform(), selection["stop"]["threshold"]
 
     def policy(images, state):
-        batch = {v: transform(images[v])[None].to(device) for v in model.views}
+        views = {"mosaic": lambda: mosaic_image(images["front"], images["down"])}  # AV (D4): the mosaic of the two rendered views
+        batch = {v: transform(views[v]() if v in views else images[v])[None].to(device) for v in model.views}
         current = torch.tensor([state], dtype=torch.float32, device=device)
         with torch.inference_mode():
             output = model.from_images(batch, tokens, current)

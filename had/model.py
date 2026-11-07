@@ -21,11 +21,14 @@ from had.vendor.policy_head import MultiHeadPolicy
 DINO = {"model": "facebook/dinov2-base", "revision": "f9e44c814b77203eaa57a6bdbbd535f21ede1415", "width": 768}
 FEATURE_DIM = 5 * DINO["width"]   # CLS + 2x2 average of the last-layer patch tokens
 # N (no image input) is a diagnostic: missing views are zero-filled exactly as for A and C.
-VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down"), "B4": ("front", "down"), "C4": ("down",), "B40": ("front", "down")}
+VARIANTS = {"A": ("front",), "B": ("front", "down"), "C": ("down",), "N": (), "B0": ("front", "down"), "B4": ("front", "down"), "C4": ("down",), "B40": ("front", "down"),
+            "AV": ("mosaic",), "DG": ("front", "down")}
 # Patch grid per view where it is not 2x2. B4 (protocol.md section 16): B with the down view pooled on a 4x4 grid.
 # C4 (section 17.6): C on the same 4x4 down view, used if the development maps choose 4x4 (they did, dev look 1, 11/06).
 # B40 (section 17.9): B4 with the state zeroed, the B0 diagnostic of the 4x4 main model.
-GRIDS = {"B4": {"down": 4}, "C4": {"down": 4}, "B40": {"down": 4}}
+# D4 baselines (docs/d4_baseline_spec.md, protocol 17.6): AV, AerialVLA-style mosaic (one frozen DINOv2 pass over front above
+# down, CLS + 2x2); DG, 3DG-VLN-style token fusion (front CLS + 2x2 and down CLS + 4x4 tokens attend jointly with the words).
+GRIDS = {"B4": {"down": 4}, "C4": {"down": 4}, "B40": {"down": 4}, "DG": {"down": 4}}
 
 
 def feature_dim(grid=2):
@@ -110,6 +113,47 @@ class ViewProjection(nn.Module):
         self.proj = nn.Sequential(nn.Linear(input_dim, output_dim), nn.LayerNorm(output_dim), nn.ReLU(inplace=True))
 
 
+class MosaicFusion(nn.Module):
+    """AV: ConcatFusion with one visual input (the mosaic) instead of two."""
+    def __init__(self, vis_dim, text_dim, height_dim, hidden_dim, dropout):
+        super().__init__()
+        self.net = nn.Sequential(nn.Linear(vis_dim + text_dim + height_dim, hidden_dim), nn.LayerNorm(hidden_dim),
+                                 nn.ReLU(inplace=True), nn.Dropout(dropout), nn.Linear(hidden_dim, hidden_dim))
+
+    def forward(self, mosaic, text, height):
+        return self.net(torch.cat([mosaic, text, height], dim=-1))
+
+
+class TokenFusion(nn.Module):
+    """DG: visual tokens (768-wide DINOv2 CLS and grid cells) and word features in one 2-layer pre-norm Transformer;
+    a learned [ACT] token is read out. Type embeddings (front / down / text) and a learned position per visual cell."""
+    def __init__(self, tokens, text_dim, out_dim, width=DINO["width"], d=256, heads=4, ffn=1024, layers=2, dropout=.2):
+        super().__init__()
+        self.tokens = dict(tokens)   # view -> number of tokens (1 + grid^2)
+        self.visual = nn.Sequential(nn.Linear(width, d), nn.LayerNorm(d))
+        self.text = nn.Sequential(nn.Linear(text_dim, d), nn.LayerNorm(d))
+        self.kind = nn.Embedding(3, d)  # front, down, text
+        self.position = nn.Embedding(sum(self.tokens.values()), d)
+        self.act = nn.Parameter(torch.randn(1, 1, d) * .02)
+        layer = nn.TransformerEncoderLayer(d, heads, ffn, dropout, batch_first=True, norm_first=True)
+        self.encoder = nn.TransformerEncoder(layer, layers, enable_nested_tensor=False)
+        self.norm = nn.LayerNorm(d)
+        self.out = nn.Linear(d, out_dim)
+
+    def forward(self, features, words, pad_mask):
+        b = len(words)
+        visual, types = [], []
+        for i, view in enumerate(("front", "down")):
+            x = features[view].reshape(b, self.tokens[view], -1)
+            visual.append(x); types.append(torch.full((self.tokens[view],), i, dtype=torch.long, device=x.device))
+        types = torch.cat(types)
+        visual = self.visual(torch.cat(visual, 1)) + self.kind(types) + self.position(torch.arange(len(types), device=types.device))
+        text = self.text(words) + self.kind(torch.full((words.shape[1],), 2, dtype=torch.long, device=words.device))
+        x = torch.cat([self.act.expand(b, -1, -1), visual, text], 1)
+        mask = torch.cat([pad_mask.new_zeros((b, 1 + len(types))), pad_mask], 1)
+        return self.out(self.norm(self.encoder(x, src_key_padding_mask=mask)[:, 0]))
+
+
 class TerrainHAD(nn.Module):
     def __init__(self, variant, tokenizer, *, cached_only=False, small=False, backbone=None):
         super().__init__()
@@ -118,7 +162,7 @@ class TerrainHAD(nn.Module):
             raise ValueError(f"Variant must be one of {sorted(VARIANTS)}")
         self.config = c = SMALL if small else HadDims()
         self.tokenizer = tokenizer
-        self.grids = {v: GRIDS.get(variant, {}).get(v, 2) for v in ("front", "down")}
+        self.grids = {v: GRIDS.get(variant, {}).get(v, 2) for v in ("front", "down", "mosaic")}
         self.front_encoder = ViewProjection(c.visual_dim, feature_dim(self.grids["front"]))
         self.down_encoder = ViewProjection(c.visual_dim, feature_dim(self.grids["down"]))
         self.text_encoder = TextEncoder(vocab_size=tokenizer.vocab_size, embedding_dim=c.text_embedding_dim,
@@ -135,8 +179,18 @@ class TerrainHAD(nn.Module):
         self.variant = variant
         self.views = VARIANTS[variant]
         for view in ("front", "down"):
-            if view not in self.views:
+            if view not in self.views or variant == "DG":
                 getattr(self, f"{view}_encoder").proj.requires_grad_(False)
+        # The D4 baselines are built after every module of the other variants, so those keep their initialization.
+        if variant == "AV":
+            self.mosaic_encoder = ViewProjection(c.visual_dim, feature_dim(self.grids["mosaic"]))
+            self.mosaic_fusion = MosaicFusion(c.visual_dim, self.text_encoder.output_dim, c.height_dim, c.fusion_dim, c.dropout)
+        if variant == "DG":
+            self.token_fusion = TokenFusion({v: 1 + self.grids[v] ** 2 for v in ("front", "down")}, self.text_encoder.output_dim,
+                                            c.fusion_dim, d=16 if small else 256, heads=2 if small else 4,
+                                            ffn=32 if small else 1024, dropout=c.dropout)
+        if variant in ("AV", "DG"):
+            self.fusion.requires_grad_(False)
         self.backbone = None if cached_only else (backbone if backbone is not None else DinoFeatures())
 
     def forward(self, features, tokens, state):
@@ -147,10 +201,15 @@ class TerrainHAD(nn.Module):
         if self.variant in NO_POSE:
             state = torch.zeros_like(state)
         zero = state.new_zeros((len(state), self.config.visual_dim))
-        encoded = {v: getattr(self, f"{v}_encoder").proj(x) for v, x in features.items()}
-        text, _ = self.text_encoder(tokens)
+        text, words = self.text_encoder(tokens)
         height = state.new_zeros((len(state), self.config.height_dim))
-        fused, _ = self.fusion(encoded.get("front", zero), encoded.get("down", zero), text, height)
+        if self.variant == "DG":
+            fused = self.token_fusion(features, words, tokens.eq(self.text_encoder.padding_idx))
+        elif self.variant == "AV":
+            fused = self.mosaic_fusion(self.mosaic_encoder.proj(features["mosaic"]), text, height)
+        else:
+            encoded = {v: getattr(self, f"{v}_encoder").proj(x) for v, x in features.items()}
+            fused, _ = self.fusion(encoded.get("front", zero), encoded.get("down", zero), text, height)
         hidden = self.state_fusion(torch.cat((fused, self.state_encoder(state)), dim=-1))
         out = self.policy(hidden)
         return {"action": out["pred_action"], "stop_logit": out["stop_logit"].reshape(-1)}

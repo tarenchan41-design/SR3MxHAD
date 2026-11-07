@@ -60,3 +60,18 @@ def test_b40_is_b4_without_state():
     from experiments.protocol import DIAGNOSTIC_VARIANTS
     assert VARIANTS["B40"] == VARIANTS["B4"] and GRIDS["B40"] == GRIDS["B4"]
     assert "B40" in NO_POSE and "B4" not in NO_POSE and DIAGNOSTIC_VARIANTS["B40"] == ["front", "down"]
+
+
+def test_route_subset_keeps_every_target_and_feature_rows():
+    import types
+    import numpy as np
+    from experiments.train import route_subset
+    routes, offset = [], 0
+    for g, n in (("m/a", 8), ("m/b", 4), ("m/c", 1)):
+        for i in range(n):
+            routes.append({"route_id": f"{g}_{i}", "route_group_id": g, "offset": offset, "count": 3}); offset += 3
+    ds = types.SimpleNamespace(routes=routes, arrays={"state": np.arange(offset)[:, None] * np.ones((1, 5))}, n=offset)
+    sub, kept = route_subset(ds, .25)
+    assert len(kept) == 2 + 1 + 1 and {r["route_group_id"] for r in sub.routes} == {"m/a", "m/b", "m/c"}
+    assert sub.n == 12 and np.array_equal(sub.arrays["state"][:, 0], sub.feature_index) and route_subset(ds, .25)[1] == kept
+    assert list(sub.route_index) == [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]

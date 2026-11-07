@@ -42,7 +42,7 @@ TERRAIN = tuple(PROTOCOL["terrain_categories"])
 # (protocol.md §6); kept outside PROTOCOL so existing preparations and caches stay valid.
 MAIN_VARIANTS = ("A", "B")
 # Diagnostic variants defined outside PROTOCOL for the same reason. N: instruction + state only. B0: B with the state zeroed.
-DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"], "B4": ["front", "down"], "C4": ["down"], "B40": ["front", "down"]}  # B4, C4, B40: down view on a 4x4 grid (sections 16, 17.6); B40 = B4 without the state
+DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"], "B4": ["front", "down"], "C4": ["down"], "B40": ["front", "down"], "AV": ["mosaic"], "DG": ["front", "down"]}  # B4, C4, B40: down view on a 4x4 grid (sections 16, 17.6); B40 = B4 without the state
 
 
 def machine_paths():
@@ -148,7 +148,7 @@ def read_features(cache, split, prepared, widths=None):
         raise ValueError("Feature cache is incomplete or belongs to different preparation")
     if metadata["backbone"] != PROTOCOL["weights"] or metadata["image_size"] != PROTOCOL["image_size"]:
         raise ValueError("Feature cache backbone/preprocessing mismatch")
-    features = {v: np.load(path / f"{v}.npy", mmap_mode="r", allow_pickle=False) for v in ("front", "down")}
+    features = {v: np.load(path / f"{v}.npy", mmap_mode="r", allow_pickle=False) for v in widths}  # mosaic.npy for AV
     if any(x.shape != (prepared.n, widths[v]) or x.dtype != np.dtype(PROTOCOL["feature_dtype"]) for v, x in features.items()):
         raise ValueError("Invalid cached feature array")
     return features, metadata
