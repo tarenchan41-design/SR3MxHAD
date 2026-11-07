@@ -1,4 +1,5 @@
 """Dataset v3 stage 2, K closed loop on the development maps (protocol sections 17.7 and 17.9). SR3MXHAD_PROTOCOL=v3; close the GUI editor.
+The test opening (17.10) reuses fly() with --split test through experiments.v3s2_test; report() here is dev only.
 
 fly:    one policy over the 80 dev routes (L_MTR_B, L_DES_B_v3). A checkpoint, or a reference without a model: oracle (the
         pursuit expert without injected offsets) or straight (keep the start heading, stop after the expert's step count).
@@ -18,7 +19,7 @@ from pathlib import Path
 import numpy as np
 
 from experiments.closed_loop_k import load_policy
-from experiments.protocol import PreparedSplit, read_json, write_json
+from experiments.protocol import PreparedSplit, code_version, read_json, write_json
 from experiments.v3_fly import RADII, bootstrap_difference, finite_or_none, fly_route, reference_policy
 from experiments.v3_leak import Ground
 from experiments.v3_ue_check import STAGE2_CONSOLE
@@ -32,8 +33,9 @@ def map_of(route):
     return route["route_group_id"].split("/")[0]
 
 
-def dev_routes(prepared):
-    ds = PreparedSplit(prepared, "dev")
+def dev_routes(prepared, split="dev"):
+    """Routes of a prepared split with their expert positions and yaws; the test split only for the test opening (17.10)."""
+    ds = PreparedSplit(prepared, split)
     out = []
     for r in ds.routes:
         window = slice(r["offset"], r["offset"] + r["count"])
@@ -52,7 +54,10 @@ def route_e(result):
 
 def fly(args):
     from sim_k.backend import MemoryPolicy, UEBackend
-    routes = dev_routes(args.prepared)
+    split = getattr(args, "split", "dev")
+    if split == "test" and code_version()["dirty"]:
+        raise RuntimeError("Test flights run only from a clean, committed tree (protocol 17.10: the test maps open once)")
+    routes = dev_routes(args.prepared, split)
     out = Path(args.out) / args.name
     out.mkdir(parents=True, exist_ok=True)
     for map_id in sorted({map_of(r) for r, _, _ in routes}):
@@ -137,5 +142,6 @@ if __name__ == "__main__":
     p.add_argument("--out", default="runs/v3/stage2/dev_look1"); p.add_argument("--cache", default=str(Path.home() / "sr3mxhad_runs/v3/ground"))
     p.add_argument("--name"); p.add_argument("--checkpoint"); p.add_argument("--device", default="cuda")
     p.add_argument("--summary", default="summary.json")
+    p.add_argument("--split", choices=("dev", "test"), default="dev", help="fly only; test flights go through experiments.v3s2_test")
     args = p.parse_args()
     {"fly": fly, "report": report}[args.stage](args)
