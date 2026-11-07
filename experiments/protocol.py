@@ -42,7 +42,7 @@ TERRAIN = tuple(PROTOCOL["terrain_categories"])
 # (protocol.md §6); kept outside PROTOCOL so existing preparations and caches stay valid.
 MAIN_VARIANTS = ("A", "B")
 # Diagnostic variants defined outside PROTOCOL for the same reason. N: instruction + state only. B0: B with the state zeroed.
-DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"], "B4": ["front", "down"], "C4": ["down"]}  # B4, C4: down view on a 4x4 grid (sections 16, 17.6)
+DIAGNOSTIC_VARIANTS = {"N": [], "B0": ["front", "down"], "B4": ["front", "down"], "C4": ["down"], "B40": ["front", "down"]}  # B4, C4, B40: down view on a 4x4 grid (sections 16, 17.6); B40 = B4 without the state
 
 
 def machine_paths():

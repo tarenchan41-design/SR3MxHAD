@@ -53,3 +53,10 @@ def test_one_forward_pass_gives_the_2x2_cache_and_a_4x4_grid_that_pools_back_to_
     cells4 = four[:, 8:].reshape(3, 4, 4, 8)
     pooled = cells4.reshape(3, 2, 2, 2, 2, 8).mean((2, 4)).reshape(3, 32)
     assert torch.allclose(two[:, :8], four[:, :8]) and torch.allclose(two[:, 8:], pooled, atol=1e-6)
+
+
+def test_b40_is_b4_without_state():
+    from had.model import GRIDS, NO_POSE, VARIANTS
+    from experiments.protocol import DIAGNOSTIC_VARIANTS
+    assert VARIANTS["B40"] == VARIANTS["B4"] and GRIDS["B40"] == GRIDS["B4"]
+    assert "B40" in NO_POSE and "B4" not in NO_POSE and DIAGNOSTIC_VARIANTS["B40"] == ["front", "down"]
